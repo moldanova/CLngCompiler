@@ -1,45 +1,20 @@
-﻿Построение начато 29.09.2014 8:38:19.
+﻿Построение начато 30.09.2014 9:04:21.
      1>Проект "C:\Users\Gena\Documents\Visual Studio 2012\Projects\CLngCompiler\CLngCompiler\CLngCompiler.vcxproj" в узле 2 (целевые объекты Build).
-     1>ClCompile:
-         C:\Program Files\Microsoft Visual Studio 11.0\VC\bin\CL.exe /c /ZI /nologo /W3 /WX- /Od /Oy- /D WIN32 /D _DEBUG /D _CONSOLE /D _UNICODE /D UNICODE /Gm /EHsc /RTC1 /MDd /GS /fp:precise /Zc:wchar_t /Zc:forScope /Fo"Debug\\" /Fd"Debug\vc110.pdb" /Gd /TP /analyze- /errorReport:prompt Lexeme.cpp Lexer.cpp main.cpp Node.cpp Parser.cpp stdafx.cpp Symbols.cpp
-         Symbols.cpp
-     1>c:\users\gena\documents\visual studio 2012\projects\clngcompiler\clngcompiler\symbols.cpp(149): warning C4996: 'sprintf': This function or variable may be unsafe. Consider using sprintf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
-                 c:\program files\microsoft visual studio 11.0\vc\include\stdio.h(357): см. объявление "sprintf"
-     1>c:\users\gena\documents\visual studio 2012\projects\clngcompiler\clngcompiler\symbols.cpp(159): warning C4018: <: несоответствие типов со знаком и без знака
-     1>c:\users\gena\documents\visual studio 2012\projects\clngcompiler\clngcompiler\symbols.cpp(168): warning C4018: <: несоответствие типов со знаком и без знака
-     1>c:\users\gena\documents\visual studio 2012\projects\clngcompiler\clngcompiler\symbols.cpp(193): warning C4018: <: несоответствие типов со знаком и без знака
-     1>c:\users\gena\documents\visual studio 2012\projects\clngcompiler\clngcompiler\symbols.cpp(203): warning C4018: <: несоответствие типов со знаком и без знака
-     1>c:\users\gena\documents\visual studio 2012\projects\clngcompiler\clngcompiler\symbols.cpp(222): warning C4018: <: несоответствие типов со знаком и без знака
-     1>c:\users\gena\documents\visual studio 2012\projects\clngcompiler\clngcompiler\symbols.cpp(230): warning C4018: <: несоответствие типов со знаком и без знака
-     1>c:\users\gena\documents\visual studio 2012\projects\clngcompiler\clngcompiler\symbols.cpp(246): warning C4018: <: несоответствие типов со знаком и без знака
-         stdafx.cpp
-         Parser.cpp
-     1>c:\users\gena\documents\visual studio 2012\projects\clngcompiler\clngcompiler\parser.cpp(653): warning C4996: 'sprintf': This function or variable may be unsafe. Consider using sprintf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
-                 c:\program files\microsoft visual studio 11.0\vc\include\stdio.h(357): см. объявление "sprintf"
-         Node.cpp
-     1>c:\users\gena\documents\visual studio 2012\projects\clngcompiler\clngcompiler\node.cpp(29): warning C4018: <: несоответствие типов со знаком и без знака
-     1>c:\users\gena\documents\visual studio 2012\projects\clngcompiler\clngcompiler\node.cpp(40): warning C4018: <: несоответствие типов со знаком и без знака
-     1>c:\users\gena\documents\visual studio 2012\projects\clngcompiler\clngcompiler\node.cpp(211): warning C4018: <: несоответствие типов со знаком и без знака
-     1>c:\users\gena\documents\visual studio 2012\projects\clngcompiler\clngcompiler\node.cpp(224): warning C4018: <: несоответствие типов со знаком и без знака
-     1>c:\users\gena\documents\visual studio 2012\projects\clngcompiler\clngcompiler\node.cpp(247): warning C4018: <: несоответствие типов со знаком и без знака
-     1>c:\users\gena\documents\visual studio 2012\projects\clngcompiler\clngcompiler\node.cpp(255): warning C4018: <: несоответствие типов со знаком и без знака
-         main.cpp
-         Lexer.cpp
-     1>c:\users\gena\documents\visual studio 2012\projects\clngcompiler\clngcompiler\lexer.cpp(240): warning C4018: <: несоответствие типов со знаком и без знака
-     1>c:\users\gena\documents\visual studio 2012\projects\clngcompiler\clngcompiler\lexer.cpp(281): warning C4018: <: несоответствие типов со знаком и без знака
-         Lexeme.cpp
-         Создание кода...
-       Link:
-         C:\Program Files\Microsoft Visual Studio 11.0\VC\bin\link.exe /ERRORREPORT:PROMPT /OUT:"C:\Users\Gena\Documents\Visual Studio 2012\Projects\CLngCompiler\Debug\CLngCompiler.exe" /INCREMENTAL /NOLOGO kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib pthreadVC2.lib /MANIFEST /MANIFESTUAC:"level='asInvoker' uiAccess='false'" /manifest:embed /DEBUG /PDB:"C:\Users\Gena\Documents\Visual Studio 2012\Projects\CLngCompiler\Debug\CLngCompiler.pdb" /SUBSYSTEM:CONSOLE /TLBID:1 /DYNAMICBASE /NXCOMPAT /IMPLIB:"C:\Users\Gena\Documents\Visual Studio 2012\Projects\CLngCompiler\Debug\CLngCompiler.lib" /MACHINE:X86 Debug\Lexeme.obj
+     1>Link:
+         C:\Program Files\Microsoft Visual Studio 11.0\VC\bin\link.exe /ERRORREPORT:PROMPT /OUT:"C:\Users\Gena\Documents\Visual Studio 2012\Projects\CLngCompiler\Debug\CLngCompiler.exe" /INCREMENTAL /NOLOGO kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib pthreadVC2.lib /MANIFEST /MANIFESTUAC:"level='asInvoker' uiAccess='false'" /manifest:embed /DEBUG /PDB:"C:\Users\Gena\Documents\Visual Studio 2012\Projects\CLngCompiler\Debug\CLngCompiler.pdb" /SUBSYSTEM:CONSOLE /TLBID:1 /DYNAMICBASE /NXCOMPAT /IMPLIB:"C:\Users\Gena\Documents\Visual Studio 2012\Projects\CLngCompiler\Debug\CLngCompiler.lib" /MACHINE:X86 Debug\ConstExpressionCalc.obj
+         Debug\FlagHandler.obj
+         Debug\Lexeme.obj
          Debug\Lexer.obj
          Debug\main.obj
          Debug\Node.obj
          Debug\Parser.obj
+         Debug\Printer.obj
          Debug\stdafx.obj
          Debug\Symbols.obj
+         Debug\Value.obj
          CLngCompiler.vcxproj -> C:\Users\Gena\Documents\Visual Studio 2012\Projects\CLngCompiler\Debug\CLngCompiler.exe
      1>Построение проекта "C:\Users\Gena\Documents\Visual Studio 2012\Projects\CLngCompiler\CLngCompiler\CLngCompiler.vcxproj" завершено (целевые объекты Build).
 
 Построение успешно завершено.
 
-Затраченное время: 00:00:13.96
+Затраченное время: 00:00:08.69

@@ -2,6 +2,8 @@
 #include "Node.h"
 #include "Lexer.h"
 
+//---------------------------------------------------------------------------
+
 // Конструктор
 Node::Node()
 {
@@ -16,6 +18,55 @@ Node::~Node(void)
 void Node::print()
 {
 }
+
+// Посетить узел
+void Node::visit(INodeVisitor* visitor)
+{
+	visitor->OnNode(this);
+}
+
+//-------------------------------------------------------------------------
+
+// Конструктор
+ProgramNode::ProgramNode()
+{
+	global.addSymbol(new TypeSymbol("void", 0));
+	global.addSymbol(new TypeSymbol("char", 1));
+	global.addSymbol(new TypeSymbol("int", 4));
+	global.addSymbol(new TypeSymbol("float", 4));
+}
+
+// Деструктор
+ProgramNode::~ProgramNode()
+{
+	for (int i = 0; i < nodes.size(); i++)
+		delete nodes[i];
+	nodes.clear();
+}
+
+// Вывести узел на экран
+void ProgramNode::print()
+{
+	for (int i = 0; i < nodes.size(); i++)
+	{
+		nodes[i]->print();
+		std::cout << std::endl;
+	}
+}
+
+// Посетить узел
+void ProgramNode::visit(INodeVisitor* visitor)
+{
+	visitor->OnNode(this);
+}
+
+// Добавить узел
+void ProgramNode::addNode(Node* node)
+{
+	nodes.push_back(node);
+}
+
+//---------------------------------------------------------------------------
 
 // Конструктор
 ExpressionNode::ExpressionNode(Node* node)
@@ -45,11 +96,88 @@ void ExpressionNode::print()
 	}
 }
 
+// Посетить узел
+void ExpressionNode::visit(INodeVisitor* visitor)
+{
+	visitor->OnNode(this);
+}
+
 // Добавить узел
 void ExpressionNode::addAssignment(Node* node)
 {
 	nodes.push_back(node);
 }
+
+//---------------------------------------------------------------------------
+
+// Конструктор
+ConditionalNode::ConditionalNode(Node* left, Node* first, Node* second)
+{
+	this->left = left;
+	this->first = first;
+	this->second = second;
+}
+
+// Деструктор
+ConditionalNode::~ConditionalNode()
+{
+	delete left;
+	delete first;
+	delete second;
+}
+
+// Вывести узел на экран
+void ConditionalNode::print()
+{
+	std::cout << "(";
+	left->print();
+	std::cout << "?";
+	first->print();
+	std::cout << ":";
+	second->print();
+	std::cout << ")";
+}
+
+// Посетить узел
+void ConditionalNode::visit(INodeVisitor* visitor)
+{
+	visitor->OnNode(this);
+}
+
+//---------------------------------------------------------------------------
+
+// Конструктор
+BinaryOpNode::BinaryOpNode(Node* left, Lexeme op, Node* right)
+{
+	this->left = left;
+	this->op = op;
+	this->right = right;
+}
+
+// Деструктор
+BinaryOpNode::~BinaryOpNode()
+{
+	delete left;
+	delete right;
+}
+
+// Вывести узел на экран
+void BinaryOpNode::print()
+{
+	std::cout << "(";
+	left->print();
+	std::cout << op.text;
+	right->print();
+	std::cout << ")";
+}
+
+// Посетить узел
+void BinaryOpNode::visit(INodeVisitor* visitor)
+{
+	visitor->OnNode(this);
+}
+
+//---------------------------------------------------------------------------
 
 // Конструктор
 UnaryOpNode::UnaryOpNode(Node* node, Lexeme op, bool postfix)
@@ -88,75 +216,38 @@ void UnaryOpNode::print()
 	}
 }
 
-// Конструктор
-BinaryOpNode::BinaryOpNode(Node* left, Lexeme op, Node* right)
+// Посетить узел
+void UnaryOpNode::visit(INodeVisitor* visitor)
 {
-	this->left = left;
-	this->op = op;
-	this->right = right;
+	visitor->OnNode(this);
 }
 
-// Деструктор
-BinaryOpNode::~BinaryOpNode()
-{
-	delete left;
-	delete right;
-}
-
-// Вывести узел на экран
-void BinaryOpNode::print()
-{
-	std::cout << "(";
-	left->print();
-	std::cout << op.text;
-	right->print();
-	std::cout << ")";
-}
+//---------------------------------------------------------------------------
 
 // Конструктор
-ConditionalNode::ConditionalNode(Node* left, Node* first, Node* second)
-{
-	this->left = left;
-	this->first = first;
-	this->second = second;
-}
-
-// Деструктор
-ConditionalNode::~ConditionalNode()
-{
-	delete left;
-	delete first;
-	delete second;
-}
-
-// Вывести узел на экран
-void ConditionalNode::print()
-{
-	std::cout << "(";
-	left->print();
-	std::cout << "?";
-	first->print();
-	std::cout << ":";
-	second->print();
-	std::cout << ")";
-}
-
-// Конструктор
-ConstantValue::ConstantValue(Lexeme value)
+ValueNode::ValueNode(Lexeme value)
 {
 	this->value = value;
 }
 
 // Деструктор
-ConstantValue::~ConstantValue()
+ValueNode::~ValueNode()
 {
 }
 
 // Вывести узел на экран
-void ConstantValue::print()
+void ValueNode::print()
 {
 	std::cout << value.text;
 }
+
+// Посетить узел
+void ValueNode::visit(INodeVisitor* visitor)
+{
+	visitor->OnNode(this);
+}
+
+//---------------------------------------------------------------------------
 
 // Конструктор
 IdentifierNode::IdentifierNode(Lexeme name)
@@ -174,6 +265,14 @@ void IdentifierNode::print()
 {
 	std::cout << name.text;
 }
+
+// Посетить узел
+void IdentifierNode::visit(INodeVisitor* visitor)
+{
+	visitor->OnNode(this);
+}
+
+//---------------------------------------------------------------------------
 
 // Конструктор
 ArrayNode::ArrayNode(Node* arr, Node* idx)
@@ -197,6 +296,14 @@ void ArrayNode::print()
 	idx->print();
 	std::cout << "]";
 }
+
+// Посетить узел
+void ArrayNode::visit(INodeVisitor* visitor)
+{
+	visitor->OnNode(this);
+}
+
+//---------------------------------------------------------------------------
 
 // Конструктор
 FuncCallNode::FuncCallNode(Node* func)
@@ -230,37 +337,14 @@ void FuncCallNode::print()
 	std::cout << ")";
 }
 
+// Посетить узел
+void FuncCallNode::visit(INodeVisitor* visitor)
+{
+	visitor->OnNode(this);
+}
+
 // Добавить узел
 void FuncCallNode::addArgument(Node* node)
-{
-	nodes.push_back(node);
-}
-
-// Конструктор
-ProgramNode::ProgramNode()
-{
-}
-
-// Деструктор
-ProgramNode::~ProgramNode()
-{
-	for (int i = 0; i < nodes.size(); i++)
-		delete nodes[i];
-	nodes.clear();
-}
-
-// Вывести узел на экран
-void ProgramNode::print()
-{
-	for (int i = 0; i < nodes.size(); i++)
-	{
-		nodes[i]->print();
-		std::cout << std::endl;
-	}
-}
-
-// Добавить узел
-void ProgramNode::addNode(Node* node)
 {
 	nodes.push_back(node);
 }

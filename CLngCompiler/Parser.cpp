@@ -1,5 +1,6 @@
 #include "stdafx.h"
 #include "Parser.h"
+#include "ConstExpressionCalc.h"
 
 // Конструктор
 Parser::Parser(Lexer& lexer)
@@ -15,18 +16,27 @@ Parser::~Parser(void)
 }
 
 // Выполнить анализ
-void Parser::parse()
+Node* Parser::parse()
 {
+	buffer.clear();
+	backStack.clear();
+	tables.clear();
+
 	if (lex == -1)
 		next();
+
+	ProgramNode* prog = new ProgramNode();
+	tables.push_back(&prog->global);
 
 	while (lex != LEX_EOF)
 	{
 		// Получаем единицу трансляции
-		Node* node = parseFunction();
+		Node* node = parseUnit();
 		if (node != NULL)
-			prog.addNode(node);
+			prog->addNode(node);
 	}
+
+	return prog;
 }
 
 // Вернуть признак ошибок
@@ -63,11 +73,33 @@ Node* Parser::parseExpression()
 		else
 		{
 			// иначе разбор окончен
-			commit();
 			break;
 		}
 	}
 	return result;
+}
+
+// Разобрать единицу трансляции
+Node* Parser::parseUnit()
+{
+	TypeSymbol* type = parseType();
+	ItemSymbol* item = parseDeclarator(type);
+	if (dynamic_cast<VariableSymbol*>(item) != NULL)
+	{
+		while (lex == LEX_COMMA)
+		{
+			next();
+			item = parseDeclarator(type);
+		}
+	}
+
+	if (lex == LEX_SEMICOLON)
+	{
+		next();
+		return NULL;
+	}
+
+	return NULL;
 }
 
 // Разобраиь присваивание
@@ -460,12 +492,12 @@ Node* Parser::parsePrimaryExpression()
 	}
 	else if (lex == LEX_INT_VALUE || lex == LEX_FLOAT_VALUE || lex == LEX_CHAR_VALUE)
 	{
-		result = new ConstantValue(lex);
+		result = new ValueNode(lex);
 		next();
 	}
 	else if (lex == LEX_STRING_VALUE)
 	{
-		result = new ConstantValue(lex);
+		result = new ValueNode(lex);
 		next();
 	}
 	else if (lex == LEX_LPAREN)
@@ -484,69 +516,118 @@ Node* Parser::parsePrimaryExpression()
 	return result;
 }
 
-// Разобрать функцию
-Node* Parser::parseFunction()
-{
-	TypeSymbol* type = parseType();
-
-	return NULL;
-}
-
 // разобрать тип
 TypeSymbol* Parser::parseType()
 {
 	TypeSymbol* type = NULL;
+
+	// разбираем псевдоним типа
 	if (lex == LEX_TYPEDEF)
 	{
 		next();
 		type = parseType();
 		if (type == NULL)
-			OnSyntaxError("invalid typedef");
+			OnSyntaxError("expected type definition");
 		if (lex != LEX_ID)
 			OnSyntaxError("expected typedef identifier");
-		if (symbols.findByName(lex.text.c_str()) != NULL)
+		if (findSymbolByName(lex.text.c_str()) != NULL)
 			OnSyntaxError("identifier already used");
-		type = new AliasSymbol(type, lex.text);
+		type = (TypeSymbol*)findOrAddSymbol(new AliasSymbol(type, lex.text));
 		next();
-		symbols.addSymbol(type);		
 	}
+	// Это пустой тип
+	else if (lex == LEX_VOID)
+	{
+		next();
+		type = (TypeSymbol*)findOrAddSymbol(new TypeSymbol("void", 0));
+	}
+	// Это символьный тип
+	else if (lex == LEX_CHAR)
+	{
+		next();
+		type = (TypeSymbol*)findOrAddSymbol(new TypeSymbol("char", 1));
+	}
+	// Это целый тип
+	else if (lex == LEX_INT)
+	{
+		next();
+		type = (TypeSymbol*)findOrAddSymbol(new TypeSymbol("int", 4));
+	}
+	// Это вещественный тип
+	else if (lex == LEX_FLOAT)
+	{
+		next();
+		type = (TypeSymbol*)findOrAddSymbol(new TypeSymbol("float", 4));
+	}	
+	// Разбираем структуру
 	else if (lex == LEX_STRUCT)
 	{
 		type = parseStruct();
 	}
-	else if (lex == LEX_CONST)
+	// Это идентификатор - возможно имя типа
+	else if (lex == LEX_ID)
 	{
-		// Это тип константы
+		type = (TypeSymbol*)findSymbolByName(lex.text);
+		if (type != NULL)
+			next();
+		else
+		{
+			// Это не тип, а что-то другое
+			back();
+			return NULL;
+		}
+	}
+	// Это константный тип
+	else if (lex == LEX_CONST)
+	{		
 		next();
 		type = parseType();
-		if (type->isConst() && !type->isPointer())
-			OnSyntaxError("invalid type");
-		type = (TypeSymbol*)symbols.findOrAdd(new TypeSymbol(type, TypeSymbol::MODE_CONST));
-	}
-	else if (lex == LEX_INT)
-	{
-		next();
-		type = (TypeSymbol*)symbols.findOrAdd(new TypeSymbol("int", 4));
-	}
-	else if (lex == LEX_FLOAT)
-	{
-		next();
-		type = (TypeSymbol*)symbols.findOrAdd(new TypeSymbol("float", 8));
-	}
-	else if (lex == LEX_CHAR)
-	{
-		next();
-		type = (TypeSymbol*)symbols.findOrAdd(new TypeSymbol("char", 1));
-	}
-	else if (lex == LEX_VOID)
-	{
-		next();
-	}	
-	else
-	{
-		type = (TypeSymbol*)symbols.findByName(lex.text);
 		if (type == NULL)
-			OnSyntaxError("expected type");
+			OnSyntaxError("incomplete type");
+		if (type->isConst())
+			OnSyntaxError("double \'const\'");
+		if (type->isVoid())
+			OnSyntaxError("incorrect type \'const void\'");
+		type = (TypeSymbol*)findOrAddSymbol(new TypeSymbol(type, TypeSymbol::MODE_CONST));
+	}		
+
+	// Если const стоит после названия типа
+	if (type != NULL && lex == LEX_CONST)
+	{
+		while (lex == LEX_CONST)
+		{
+			next();
+			if (type->isConst())
+				OnSyntaxError("double \'const\'");
+			if (type->isVoid())
+				OnSyntaxError("incorrect type \'const void\'");
+			type = (TypeSymbol*)findOrAddSymbol(new TypeSymbol(type, TypeSymbol::MODE_CONST));
+		}
+	}
+
+
+	return type;
+}
+
+// Разобрать указатель
+TypeSymbol* Parser::parsePointer(TypeSymbol* type)
+{
+	// Разбираем модификаторы типа, которые могут следовать после имени типа
+	if (type != NULL)
+	{		
+		while (lex == LEX_MUL)
+		{
+			next();
+			type = (TypeSymbol*)findOrAddSymbol(new TypeSymbol(type, TypeSymbol::MODE_POINTER));
+	
+			while (lex == LEX_CONST)
+			{
+				next();
+				if (type->isConst())
+					OnSyntaxError("double \'const\'");
+				type = (TypeSymbol*)findOrAddSymbol(new TypeSymbol(type, TypeSymbol::MODE_CONST));
+			}
+		}
 	}
 
 	return type;
@@ -568,10 +649,121 @@ TypeSymbol* Parser::parseStruct()
 	return symbol;
 }
 
-// разобрать переменную
-VariableSymbol* Parser::parseVariable(TypeSymbol* type)
+// разобрать определение
+ItemSymbol* Parser::parseDeclarator(TypeSymbol* type)
 {
-	return NULL;
+	ItemSymbol* item = NULL;
+	type = parsePointer(type);
+	Lexeme name;
+	if (lex == LEX_ID)
+	{
+		name = lex;
+		next();
+	}
+	else if (lex == LEX_LPAREN)
+	{
+		item = parseDeclarator(type);
+		if (lex != LEX_RPAREN)
+			OnSyntaxError("expected \')\'");
+		next();
+	}
+
+	// это массив
+	if (lex == LEX_LBRACKET)
+	{
+		while (lex == LEX_LBRACKET)
+		{
+			next();
+			// Если это не переменная, то ошибка
+			if (item != NULL && dynamic_cast<VariableSymbol*>(item) == NULL)
+				OnSyntaxError("invalid array declaration");
+			// разбираем размер массива
+			Node* node = parseConditionalExpression(NULL);
+			// вычисляем выражение
+			ConstExpressionCalc calc;
+			if (!calc.calculate(node))
+				OnSyntaxError(calc.errorMsg().c_str());
+			int count = calc.asInt();
+			// Модифицируем тип
+			type = (TypeSymbol*)findOrAddSymbol(new ArraySymbol(type, count));
+			if (item == NULL)
+			{
+				if (findSymbolByName(name.text, false))
+					OnSyntaxError("name already used");
+				item = new VariableSymbol(name.text, type);
+				addSymbol(item);
+			}
+			else
+				item->type = type;
+			// Проверяем закрывающую скобку
+			if (lex != LEX_RBRACKET)
+				OnSyntaxError("expected \']\'");
+			next();
+		}
+	}
+	else if (lex == LEX_LPAREN)
+	{
+		next();
+
+		// Это функция
+		if (item != NULL)
+			OnSyntaxError("invalid function declaration");
+		if (findSymbolByName(name.text))
+			OnSyntaxError("name already used");
+		item = new FunctionSymbol(name.text, type);
+		addSymbol(item);
+
+		// разбираем параметры функции
+
+		if (lex != LEX_RPAREN)
+			OnSyntaxError("expected \')\'");
+		next();
+	}
+	else if (item == NULL)
+	{
+		if (findSymbolByName(name.text, false))
+			OnSyntaxError("name already used");
+		item = new VariableSymbol(name.text, type);
+		addSymbol(item);
+	}
+
+	return item;
+}
+
+// Получить следующую лексему
+void Parser::next()
+{
+	// Помещаем текущую лексему в стек
+	if (lex != -1)
+	{
+		buffer.push_back(lex);
+		if (buffer.size() >= 1000)
+			buffer.erase(buffer.begin(), buffer.begin() + 100);
+	}
+
+	// Если стек пуст
+	if (backStack.empty())
+		// то запрашиваем лексему в лексере
+		lex = lexer.next();
+	else
+	{
+		// иначе берем лексему из стека
+		lex = backStack.back();
+		backStack.pop_back();
+	}
+}
+
+// Вернуть лексему назад
+void Parser::back()
+{
+	if (buffer.empty())
+		throw std::exception("Internal error: back buffer is empty");
+
+	// Помещаем лексему в стек
+	backStack.push_back(lex);
+	// Возвращаем лексему из буфера
+	lex = buffer.back();
+	buffer.pop_back();
 }
 
 // Проверить, что лексема является унарной операцией
@@ -608,42 +800,45 @@ bool Parser::isTypeName()
 	return false;
 }
 
-// Получить следующую лексему
-void Parser::next()
+// Поиск символа
+Symbol* Parser::findSymbolByName(std::string name, bool forceAll)
 {
-	// Помещаем текущую лексему в стек
-	if (lex != -1)
-		buffer.push_back(lex);
-
-	// Если стек пуст
-	if (stack.empty())
-		// то запрашиваем лексему в лексере
-		lex = lexer.next();
+	// Посик во всех таблицах
+	if (forceAll)
+	{
+		for (int i = tables.size() - 1; i >= 0; i--)
+		{
+			Symbol* s = tables[i]->findByName(name);
+			if (s != NULL)
+				return s;
+		}
+	}
 	else
 	{
-		// иначе берем лексему из стека
-		lex = stack.back();
-		stack.pop_back();
+		// Поиск в текущей таблице
+		return tables.back()->findByName(name);
 	}
+
+	return NULL;
 }
 
-// Вернуть лексему назад
-void Parser::back()
+// Поиск  символа или добавить
+Symbol* Parser::findOrAddSymbol(Symbol* symbol, bool forceAll)
 {
-	if (buffer.empty())
-		throw std::exception("Internal error: back buffer is empty");
-
-	// Помещаем лексему в стек
-	stack.push_back(lex);
-	// Возвращаем лексему из буфера
-	lex = buffer.back();
-	buffer.pop_back();
+	// Поиск символа
+	Symbol* s = findSymbolByName(symbol->name, forceAll);
+	if (s != NULL)
+		return s;
+	// Добавить символ
+	tables.back()->addSymbol(symbol);
+	return symbol;
 }
 
-// Очистить буфер
-void Parser::commit()
+// Добавить символ
+void Parser::addSymbol(Symbol* symbol)
 {
-	buffer.clear();
+	// Добавить символ
+	tables.back()->addSymbol(symbol);
 }
 
 // Сообщение о синтаксической ошибке

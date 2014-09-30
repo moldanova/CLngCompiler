@@ -1,5 +1,9 @@
 #pragma once
 
+class ISymbolVisitor;
+
+//-------------------------------------------------------------------------
+
 // Класс символа
 class Symbol
 {
@@ -10,11 +14,13 @@ public:
 	Symbol(std::string name);
 	// Деструктор
 	virtual ~Symbol();
-	// Вывод символа
-	virtual void print(int spaces);
+	// Посетить символ
+	virtual void visit(ISymbolVisitor* visitor);
 	// Название типа
 	std::string name;
 };
+
+//-------------------------------------------------------------------------
 
 // базовый класс для символов типов
 class TypeSymbol : public Symbol
@@ -35,6 +41,8 @@ public:
 	TypeSymbol(TypeSymbol* baseType, int mode);
 	// Деструктор
 	virtual ~TypeSymbol();
+	// Посетить символ
+	virtual void visit(ISymbolVisitor* visitor);
 	// Признак константы
 	bool isConst() { return mode == MODE_CONST; }
 	// Признак указателя
@@ -45,6 +53,8 @@ public:
 	virtual bool isStruct() { return false; }
 	// Признак псевдонима
 	virtual bool isAlias() { return false; }
+	// Признак пустого типа
+	bool isVoid() { return name == "void"; }
 	// Длина типа
 	int length;
 	// базовый тип
@@ -53,6 +63,7 @@ public:
 	int mode;
 };
 
+//-------------------------------------------------------------------------
 
 // Класс псевдонима
 class AliasSymbol : public TypeSymbol
@@ -62,49 +73,13 @@ public:
 	AliasSymbol(TypeSymbol* baseType, std::string name);
 	// Деструктор
 	virtual ~AliasSymbol();
-	// Вывод символа
-	virtual void print(int spaces);
+	// Посетить символ
+	virtual void visit(ISymbolVisitor* visitor);
 };
 
-// базовый класс для функции и переменной
-class ItemSymbol : public Symbol
-{
-public:
-	// Конструктор
-	ItemSymbol(std::string name, TypeSymbol* type);
-	// Деструктор
-	virtual ~ItemSymbol();
-	// Тип значения
-	TypeSymbol* type;
-};
+//-------------------------------------------------------------------------
 
-// Класс массива
-class ArraySymbol : public TypeSymbol
-{
-public:
-	// Конструктор
-	ArraySymbol(TypeSymbol* baseType, int count);
-	// Деструктор
-	virtual ~ArraySymbol();
-	// Вывод символа
-	virtual void print(int spaces);
-	// Признак массива
-	virtual bool isArray() { return true; }
-	// Количество элементов в массиве
-	int count;
-};
-
-// Класс переменной
-class VariableSymbol : public ItemSymbol
-{
-public:
-	// Конструктор
-	VariableSymbol(std::string name, TypeSymbol* type);
-	// Деструктор
-	virtual ~VariableSymbol();
-	// Вывод символа
-	virtual void print(int spaces);
-};
+class VariableSymbol;
 
 // Класс типа структуры
 class StructSymbol : public TypeSymbol
@@ -114,13 +89,77 @@ public:
 	StructSymbol(std::string name);
 	// Деструктор
 	virtual ~StructSymbol();
-	// Вывод символа
-	virtual void print(int spaces);
+	// Посетить символ
+	virtual void visit(ISymbolVisitor* visitor);
 	// Добавить поле
 	void addField(VariableSymbol* field);
 	// Поля структуры
 	std::vector<VariableSymbol*> fields;
 };
+
+//-------------------------------------------------------------------------
+
+// Класс массива
+class ArraySymbol : public TypeSymbol
+{
+public:
+	// Конструктор
+	ArraySymbol(TypeSymbol* baseType, int count);
+	// Деструктор
+	virtual ~ArraySymbol();
+	// Посетить символ
+	virtual void visit(ISymbolVisitor* visitor);
+	// Признак массива
+	virtual bool isArray() { return true; }
+	// Количество элементов в массиве
+	int count;
+};
+
+//-------------------------------------------------------------------------
+
+// базовый класс для функции и переменной
+class ItemSymbol : public Symbol
+{
+public:
+	// Конструктор
+	ItemSymbol(std::string name, TypeSymbol* type);
+	// Деструктор
+	virtual ~ItemSymbol();
+	// Посетить символ
+	virtual void visit(ISymbolVisitor* visitor);
+	// Тип значения
+	TypeSymbol* type;
+};
+
+//-------------------------------------------------------------------------
+
+// Класс константы
+class ConstantSymbol : public ItemSymbol
+{
+public:
+	// Конструктор
+	ConstantSymbol(std::string name, TypeSymbol* type);
+	// Деструктор
+	virtual ~ConstantSymbol();
+	// Посетить символ
+	virtual void visit(ISymbolVisitor* visitor);
+};
+
+//-------------------------------------------------------------------------
+
+// Класс переменной
+class VariableSymbol : public ItemSymbol
+{
+public:
+	// Конструктор
+	VariableSymbol(std::string name, TypeSymbol* type);
+	// Деструктор
+	virtual ~VariableSymbol();
+	// Посетить символ
+	virtual void visit(ISymbolVisitor* visitor);
+};
+
+//-------------------------------------------------------------------------
 
 // Класс функции
 class FunctionSymbol : public ItemSymbol
@@ -130,13 +169,15 @@ public:
 	FunctionSymbol(std::string name, TypeSymbol* type);
 	// Деструктор
 	virtual ~FunctionSymbol();
-	// Вывод символа
-	virtual void print(int spaces);
+	// Посетить символ
+	virtual void visit(ISymbolVisitor* visitor);
 	// Добавить параметр
 	void addParam(VariableSymbol* param);
 	// Параметры функции
 	std::vector<VariableSymbol*> params;
 };
+
+//-------------------------------------------------------------------------
 
 // Класс таблицы имен
 class SymbolsTable
@@ -146,8 +187,8 @@ public:
 	SymbolsTable();
 	// Деструктор
 	virtual ~SymbolsTable();
-	// Вывод таблицы символов
-	void print();
+	// Посетить символ
+	virtual void visit(ISymbolVisitor* visitor);
 	// добавить символ
 	void addSymbol(Symbol* symbol);
 	// Поиск символа по имени
@@ -156,4 +197,32 @@ public:
 	Symbol* findOrAdd(Symbol* symbol);
 	// Список типов
 	std::vector<Symbol*> symbols;
+};
+
+//-------------------------------------------------------------------------
+
+// Интерфейс посетителя для символов
+class ISymbolVisitor
+{
+public:
+	// Посетить таблицу символов
+	virtual void OnSymbol(SymbolsTable* table) = 0;
+	// Посетить символ
+	virtual void OnSymbol(Symbol* symbol) = 0;
+	// Посетить тип
+	virtual void OnSymbol(TypeSymbol* symbol) = 0;
+	// Посетить псевдоним
+	virtual void OnSymbol(AliasSymbol* symbol) = 0;
+	// Посетить структуру
+	virtual void OnSymbol(StructSymbol* symbol) = 0;
+	// Посетить массив
+	virtual void OnSymbol(ArraySymbol* symbol) = 0;
+	// Посетить символ
+	virtual void OnSymbol(ItemSymbol* symbol) = 0;
+	// Посетить константу
+	virtual void OnSymbol(ConstantSymbol* symbol) = 0;
+	// Посетить переменную
+	virtual void OnSymbol(VariableSymbol* symbol) = 0;
+	// Посетить функцию
+	virtual void OnSymbol(FunctionSymbol* symbol) = 0;
 };

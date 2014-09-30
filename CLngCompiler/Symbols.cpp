@@ -1,6 +1,8 @@
 #include "stdafx.h"
 #include "Symbols.h"
 
+//-------------------------------------------------------------------------
+
 // Конструктор
 Symbol::Symbol()
 {
@@ -18,11 +20,13 @@ Symbol::~Symbol()
 {
 }
 
-// Вывод названия типа
-void Symbol::print(int spaces)
+// Посетить символ
+void Symbol::visit(ISymbolVisitor* visitor)
 {
-	std::cout << name;
+	visitor->OnSymbol(this);
 }
+
+//-------------------------------------------------------------------------
 
 // Создать имя
 std::string TypeSymbol::makeName(TypeSymbol* baseType, int mode)
@@ -61,6 +65,14 @@ TypeSymbol::~TypeSymbol()
 	baseType = NULL;
 }
 
+// Посетить символ
+void TypeSymbol::visit(ISymbolVisitor* visitor)
+{
+	visitor->OnSymbol(this);
+}
+
+//-------------------------------------------------------------------------
+
 // Конструктор
 AliasSymbol::AliasSymbol(TypeSymbol* baseType, std::string name)
 	: TypeSymbol(name, baseType->length)
@@ -73,71 +85,13 @@ AliasSymbol::~AliasSymbol()
 {
 }
 
-// Вывод символа
-void AliasSymbol::print(int spaces)
+// Посетить символ
+void AliasSymbol::visit(ISymbolVisitor* visitor)
 {
-	std::cout << "typedef ";
-	baseType->print(spaces);
-	std::cout << " " << name;
+	visitor->OnSymbol(this);
 }
 
-// Конструктор
-ItemSymbol::ItemSymbol(std::string name, TypeSymbol* type)
-	: Symbol(name)
-{
-	this->type = type;
-}
-
-// Деструктор
-ItemSymbol::~ItemSymbol()
-{
-	type = NULL;
-}
-
-// Конструктор
-ArraySymbol::ArraySymbol(TypeSymbol* baseType, int count)
-	: TypeSymbol(baseType, TypeSymbol::MODE_NONE)
-{
-	this->length = baseType->length * count;
-	this->count = count;
-}
-
-// Деструктор
-ArraySymbol::~ArraySymbol()
-{
-}
-
-// Вывод символа
-void ArraySymbol::print(int spaces)
-{
-	baseType->print(spaces);
-	std::cout << "[" << count << "]";
-}
-
-// Конструктор
-VariableSymbol::VariableSymbol(std::string name, TypeSymbol* type)
-	: ItemSymbol(name, type)
-{
-}
-
-// Деструктор
-VariableSymbol::~VariableSymbol()
-{
-}
-
-// Вывод символа
-void VariableSymbol::print(int spaces)
-{
-	if (type->isArray())
-		type->baseType->print(spaces);
-	else
-		type->print(spaces);
-
-	std::cout << name;
-
-	if (type->isArray())
-		std::cout << "[" << ((ArraySymbol*)type)->count << "]";
-}
+//-------------------------------------------------------------------------
 
 // Конструктор
 StructSymbol::StructSymbol(std::string name)
@@ -161,18 +115,11 @@ StructSymbol::~StructSymbol()
 	fields.clear();
 }
 
-// Вывод символа
-void StructSymbol::print(int spaces)
+// Посетить символ
+void StructSymbol::visit(ISymbolVisitor* visitor)
 {
-	std::cout << name << " {" << std::endl;
-	for (int i = 0; i < fields.size(); i++)
-	{
-		std::cout << std::string(spaces + 4, ' ');
-		fields[i]->print(spaces + 4);
-	}
-	std::cout << std::string(spaces, ' ') << "}";
+	visitor->OnSymbol(this);
 }
-
 
 // Добавить поле
 void StructSymbol::addField(VariableSymbol* field)
@@ -180,6 +127,88 @@ void StructSymbol::addField(VariableSymbol* field)
 	fields.push_back(field);
 	length += field->type->length;
 }
+
+//-------------------------------------------------------------------------
+
+// Конструктор
+ArraySymbol::ArraySymbol(TypeSymbol* baseType, int count)
+	: TypeSymbol(baseType, TypeSymbol::MODE_NONE)
+{
+	this->length = baseType->length * count;
+	this->count = count;
+}
+
+// Деструктор
+ArraySymbol::~ArraySymbol()
+{
+}
+
+// Посетить символ
+void ArraySymbol::visit(ISymbolVisitor* visitor)
+{
+	visitor->OnSymbol(this);
+}
+
+//-------------------------------------------------------------------------
+
+// Конструктор
+ItemSymbol::ItemSymbol(std::string name, TypeSymbol* type)
+	: Symbol(name)
+{
+	this->type = type;
+}
+
+// Деструктор
+ItemSymbol::~ItemSymbol()
+{
+	type = NULL;
+}
+
+// Посетить символ
+void ItemSymbol::visit(ISymbolVisitor* visitor)
+{
+	visitor->OnSymbol(this);
+}
+
+//-------------------------------------------------------------------------
+
+// Конструктор
+ConstantSymbol::ConstantSymbol(std::string name, TypeSymbol* type)
+	: ItemSymbol(name, type)
+{
+}
+
+// Деструктор
+ConstantSymbol::~ConstantSymbol()
+{
+}
+
+// Посетить символ
+void ConstantSymbol::visit(ISymbolVisitor* visitor)
+{
+	visitor->OnSymbol(this);
+}
+
+//-------------------------------------------------------------------------
+
+// Конструктор
+VariableSymbol::VariableSymbol(std::string name, TypeSymbol* type)
+	: ItemSymbol(name, type)
+{
+}
+
+// Деструктор
+VariableSymbol::~VariableSymbol()
+{
+}
+
+// Посетить символ
+void VariableSymbol::visit(ISymbolVisitor* visitor)
+{
+	visitor->OnSymbol(this);
+}
+
+//-------------------------------------------------------------------------
 
 // Конструктор
 FunctionSymbol::FunctionSymbol(std::string name, TypeSymbol* type)
@@ -195,14 +224,10 @@ FunctionSymbol::~FunctionSymbol()
 	params.clear();
 }
 
-// Вывод символа
-void FunctionSymbol::print(int spaces)
+// Посетить символ
+void FunctionSymbol::visit(ISymbolVisitor* visitor)
 {
-	type->print(spaces);
-	std::cout << name << "(";
-	for (int i = 0; i < params.size(); i++)
-		params[i]->print(spaces + 4);
-	std::cout << ")";
+	visitor->OnSymbol(this);
 }
 
 // Добавить параметр
@@ -210,6 +235,8 @@ void FunctionSymbol::addParam(VariableSymbol* param)
 {
 	params.push_back(param);
 }
+
+//-------------------------------------------------------------------------
 
 // Конструктор
 SymbolsTable::SymbolsTable()
@@ -224,14 +251,10 @@ SymbolsTable::~SymbolsTable()
 	symbols.clear();
 }
 
-// Вывод таблицы символов
-void SymbolsTable::print()
+// Посетить символ
+void SymbolsTable::visit(ISymbolVisitor* visitor)
 {
-	for (int i = 0; i < symbols.size(); i++)
-	{
-		symbols[i]->print(0);
-		std::cout << ";" << std::endl;
-	}
+	visitor->OnSymbol(this);
 }
 
 // добавить символ

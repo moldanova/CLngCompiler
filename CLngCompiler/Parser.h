@@ -13,16 +13,14 @@ public:
 	// Деструктор
 	~Parser();
 	// Выполнить анализ
-	void parse();
+	Node* parse();
 	// Разобрать выражение
 	Node* parseExpression();
 	// Вернуть признак ошибок
 	bool hasErrors();
-	// Получить разобранную программу
-	ProgramNode& getProgram() { return prog; }
-	// Получить таблицу символов
-	SymbolsTable& getSymbols() { return symbols; }
 private:	
+	// Разобрать единицу трансляции
+	Node* parseUnit();
 	// Разобраиь присваивание
 	Node* parseAssignmentExpression();
 	// Разобрать условное выражение
@@ -54,30 +52,32 @@ private:
 	// Разобрать постфиксные операции
 	Node* parsePostfixExpression();
 	// Разобрать операнд
-	Node* parsePrimaryExpression();
-	// Разобрать функцию
-	Node* parseFunction();
+	Node* parsePrimaryExpression();	
 	// разобрать тип
 	TypeSymbol* parseType();
+	// Разобрать указатель
+	TypeSymbol* parsePointer(TypeSymbol* type);
 	// Разобрать структуру
 	TypeSymbol* parseStruct();	
-	// разобрать переменную
-	VariableSymbol* parseVariable(TypeSymbol* type);
-	
+	// разобрать определение
+	ItemSymbol* parseDeclarator(TypeSymbol* type);
 
+	// Получить следующую лексему
+	void next();
+	// Вернуть лексему назад
+	void back();
 	// Проверить, что лексема является унарной операцией
 	bool isUnaryOperator();
 	// Проверить что лексема является присваиванием
 	bool isAssignmentOperator();
 	// Проверить, что лексема является именем типа
 	bool isTypeName();
-
-	// Получить следующую лексему
-	void next();
-	// Вернуть лексему назад
-	void back();
-	// Очистить буфер
-	void commit();
+	// Поиск символа
+	Symbol* findSymbolByName(std::string name, bool forceAll = true);
+	// Поиск  символа или добавить
+	Symbol* findOrAddSymbol(Symbol* symbol, bool forceAll = true);
+	// Добавить символ
+	void addSymbol(Symbol* symbol);
 
 	// Сообщение о синтаксической ошибке
 	void OnSyntaxError(const char* msg);
@@ -85,8 +85,7 @@ private:
 	Lexer& lexer;	// Лексический анализатор
 	Lexeme lex;		// Анализируемая лексема
 	std::vector<Lexeme> buffer;		// буфер обработанных лексем
-	std::vector<Lexeme> stack;		// стек вернутых лексем
-	ProgramNode prog;
-	SymbolsTable symbols;			// таблица символов
+	std::vector<Lexeme> backStack;		// стек вернутых лексем
+	std::vector<SymbolsTable*> tables;	// Стек таблиц символов
 };
 

@@ -1,6 +1,11 @@
 #pragma once
 
 #include "Lexeme.h"
+#include "Symbols.h"
+
+class INodeVisitor;
+
+//-------------------------------------------------------------------------
 
 // Класс узла синтаксического дерева
 class Node
@@ -12,7 +17,33 @@ public:
 	virtual ~Node();
 	// Вывести узел на экран
 	virtual void print();
+	// Посетить узел
+	virtual void visit(INodeVisitor* visitor);
 };
+
+//-------------------------------------------------------------------------
+
+// Класс узла программы
+class ProgramNode : public Node
+{
+public:
+	// Конструктор
+	ProgramNode();
+	// Деструктор
+	virtual ~ProgramNode();
+	// Вывести узел на экран
+	virtual void print();
+	// Посетить узел
+	virtual void visit(INodeVisitor* visitor);
+	// Добавить узел
+	void addNode(Node* node);
+	// Массив узлов программы
+	std::vector<Node*> nodes;
+	// таблица глобальных символов
+	SymbolsTable global;
+};
+
+//-------------------------------------------------------------------------
 
 // Класс выражения
 class ExpressionNode : public Node
@@ -26,45 +57,13 @@ public:
 	virtual void print();
 	// Добавить узел
 	void addAssignment(Node* node);
-private:
-	std::vector<Node*> nodes;	// Массив выражений
+	// Посетить узел
+	virtual void visit(INodeVisitor* visitor);
+	// Массив выражений
+	std::vector<Node*> nodes;	
 };
 
-// Класс унарной операции
-class UnaryOpNode : public Node
-{
-public:
-	// Конструктор
-	UnaryOpNode(Node* node, Lexeme op, bool postfix);
-	// Деструктор
-	virtual ~UnaryOpNode();
-	// Вывести узел на экран
-	virtual void print();
-	// Выражение
-	Node* node;
-	// Операция
-	Lexeme op;
-	// Постфикс
-	bool postfix;
-};
-
-// Класс бинарной операции
-class BinaryOpNode : public Node
-{
-public:
-	// Конструктор
-	BinaryOpNode(Node* left, Lexeme op, Node* right);
-	// Деструктор
-	virtual ~BinaryOpNode();
-	// Вывести узел на экран
-	virtual void print();
-	// Левый узел
-	Node* left;
-	// Правый узел
-	Node* right;
-	// Операция
-	Lexeme op;
-};
+//-------------------------------------------------------------------------
 
 // Условное выражение
 class ConditionalNode : public Node
@@ -76,6 +75,8 @@ public:
 	virtual ~ConditionalNode();
 	// Вывести узел на экран
 	virtual void print();
+	// Посетить узел
+	virtual void visit(INodeVisitor* visitor);
 	// Левый узел
 	Node* left;
 	// первый узел
@@ -84,19 +85,69 @@ public:
 	Node* second;
 };
 
-// Класс константы
-class ConstantValue : public Node
+//-------------------------------------------------------------------------
+
+// Класс бинарной операции
+class BinaryOpNode : public Node
 {
 public:
 	// Конструктор
-	ConstantValue(Lexeme value);
+	BinaryOpNode(Node* left, Lexeme op, Node* right);
 	// Деструктор
-	virtual ~ConstantValue();
+	virtual ~BinaryOpNode();
 	// Вывести узел на экран
 	virtual void print();
+	// Посетить узел
+	virtual void visit(INodeVisitor* visitor);
+	// Левый узел
+	Node* left;
+	// Правый узел
+	Node* right;
+	// Операция
+	Lexeme op;
+};
+
+//-------------------------------------------------------------------------
+
+// Класс унарной операции
+class UnaryOpNode : public Node
+{
+public:
+	// Конструктор
+	UnaryOpNode(Node* node, Lexeme op, bool postfix);
+	// Деструктор
+	virtual ~UnaryOpNode();
+	// Вывести узел на экран
+	virtual void print();
+	// Посетить узел
+	virtual void visit(INodeVisitor* visitor);
+	// Выражение
+	Node* node;
+	// Операция
+	Lexeme op;
+	// Постфикс
+	bool postfix;
+};
+
+//-------------------------------------------------------------------------
+
+// Класс константы
+class ValueNode : public Node
+{
+public:
+	// Конструктор
+	ValueNode(Lexeme value);
+	// Деструктор
+	virtual ~ValueNode();
+	// Вывести узел на экран
+	virtual void print();
+	// Посетить узел
+	virtual void visit(INodeVisitor* visitor);
 	// Имя переменной
 	Lexeme value;
 };
+
+//-------------------------------------------------------------------------
 
 // Класс идентификатора
 class IdentifierNode : public Node
@@ -108,9 +159,13 @@ public:
 	virtual ~IdentifierNode();
 	// Вывести узел на экран
 	virtual void print();
+	// Посетить узел
+	virtual void visit(INodeVisitor* visitor);
 	// Идентификатор
 	Lexeme name;
 };
+
+//-------------------------------------------------------------------------
 
 // Класс обращения к элементу массива
 class ArrayNode : public Node
@@ -122,11 +177,15 @@ public:
 	virtual ~ArrayNode();
 	// Вывести узел на экран
 	virtual void print();
+	// Посетить узел
+	virtual void visit(INodeVisitor* visitor);
 	// Массив
 	Node* arr;
 	// индекс массива
 	Node* idx;
 };
+
+//-------------------------------------------------------------------------
 
 // Класс вызова функции
 class FuncCallNode : public Node
@@ -138,28 +197,40 @@ public:
 	virtual ~FuncCallNode();
 	// Вывести узел на экран
 	virtual void print();
+	// Посетить узел
+	virtual void visit(INodeVisitor* visitor);
 	// Добавить узел
 	void addArgument(Node* node);
 	// индекс массива
 	Node* func;
-private:
-	std::vector<Node*> nodes;	// Массив выражений
+	// Массив выражений
+	std::vector<Node*> nodes;	
 };
 
-// Класс программы
-class ProgramNode : public Node
+//-------------------------------------------------------------------------
+
+// Интерфейс посетителя для узлов дерева
+class INodeVisitor
 {
 public:
-	// Конструктор
-	ProgramNode();
-	// Деструктор
-	virtual ~ProgramNode();
-	// Вывести узел на экран
-	virtual void print();
-	// Добавить узел
-	void addNode(Node* node);
-private:
-	// Массив узлов программы
-	std::vector<Node*> nodes;
+	// Посетить узел
+	virtual void OnNode(Node* node) = 0;
+	// Посетить узел программы
+	virtual void OnNode(ProgramNode* node) = 0;
+	// Посетить узел выражения
+	virtual void OnNode(ExpressionNode* node) = 0;
+	// Посетить узел условного выраженрия
+	virtual void OnNode(ConditionalNode* node) = 0;
+	// Посетить узел бинарной операции
+	virtual void OnNode(BinaryOpNode* node) = 0;
+	// Посетить узел унарной операции
+	virtual void OnNode(UnaryOpNode* node) = 0;	
+	// Посетить узел значения
+	virtual void OnNode(ValueNode* node) = 0;
+	// Посетить узел идентификатора
+	virtual void OnNode(IdentifierNode* node) = 0;
+	// Посетить узел обращения к массиву
+	virtual void OnNode(ArrayNode* node) = 0;
+	// Посетить узел вызова функции
+	virtual void OnNode(FuncCallNode* node) = 0;	
 };
-

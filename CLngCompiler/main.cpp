@@ -4,6 +4,7 @@
 #include "stdafx.h"
 #include "Lexer.h"
 #include "Parser.h"
+#include "Printer.h"
 
 // Названия лексем для вывода на экран
 const char* lexName[] = {
@@ -78,6 +79,17 @@ const char* lexName[] = {
 
 int main(int argc, char* argv[])
 {
+	/*Lexer lexer("test3.c");
+	Parser parser(lexer);
+	while (true)
+	{
+		Node* node = parser.parseExpression();
+		if (node == NULL)
+			break;
+		node->print();
+		delete node;
+		std::cout << std::endl;
+	};*/
 	if (argc == 3) 
 	{
 		if (strcmp(argv[1], "-lex") == 0)
@@ -100,7 +112,6 @@ int main(int argc, char* argv[])
 				Node* node = parser.parseExpression();
 				if (node == NULL)
 					break;
-				node->print();
 				delete node;
 				std::cout << std::endl;
 			};
@@ -109,9 +120,9 @@ int main(int argc, char* argv[])
 		{
 			Lexer lexer(argv[2]);
 			Parser parser(lexer);
-			parser.parse();
-			parser.getSymbols().print();
-			parser.getProgram().print();
+			Node* node = parser.parse();
+			Printer prn;
+			node->visit(&prn);
 		}
 	}
 

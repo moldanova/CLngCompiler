@@ -1,0 +1,11 @@
+*.exe
+*.suo
+*.sdf
+*.opensdf
+*.sln
+*.ilk
+*.pdb
+/Debug
+/CLngCompiler/Debug
+*.vcxproj
+*.vcxproj.filters
