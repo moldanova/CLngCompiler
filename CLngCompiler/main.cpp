@@ -79,53 +79,49 @@ const char* lexName[] = {
 
 int main(int argc, char* argv[])
 {
-	/*Lexer lexer("test3.c");
-	Parser parser(lexer);
-	while (true)
+	try
 	{
-		Node* node = parser.parseExpression();
-		if (node == NULL)
-			break;
-		node->print();
-		delete node;
-		std::cout << std::endl;
-	};*/
-	if (argc == 3) 
-	{
-		if (strcmp(argv[1], "-lex") == 0)
+		if (argc == 3) 
 		{
-			Lexer lexer(argv[2]);
-			while (true)
+			if (strcmp(argv[1], "-lex") == 0)
 			{
-				Lexeme lex = lexer.next();
-				std::cout << lex.line << ":" << lex.col << "\t" << lexName[lex.code] << " \"" << lex.text << "\"" << std::endl;
-				if (lex.code == LEX_EOF)
-					break;
+				Lexer lexer(argv[2]);
+				while (true)
+				{
+					Lexeme lex = lexer.next();
+					std::cout << lex.line << ":" << lex.col << "\t" << lexName[lex.code] << " \"" << lex.text << "\"" << std::endl;
+					if (lex.code == LEX_EOF)
+						break;
+				}
+			}
+			else if (strcmp(argv[1], "-expr") == 0)
+			{
+				Lexer lexer(argv[2]);
+				Parser parser(lexer);
+				while (true)
+				{
+					Node* node = parser.parseExpression();
+					if (node == NULL)
+						break;
+					Printer prn;
+					node->visit(&prn);
+					std::cout << std::endl;
+				};
+			}	
+			else if (strcmp(argv[1], "-parser") == 0)
+			{
+				Lexer lexer(argv[2]);
+				Parser parser(lexer);
+				Node* node = parser.parse();
+				Printer prn;
+				node->visit(&prn);
 			}
 		}
-		else if (strcmp(argv[1], "-expr") == 0)
-		{
-			Lexer lexer(argv[2]);
-			Parser parser(lexer);
-			while (true)
-			{
-				Node* node = parser.parseExpression();
-				if (node == NULL)
-					break;
-				delete node;
-				std::cout << std::endl;
-			};
-		}
-		else if (strcmp(argv[1], "-parser") == 0)
-		{
-			Lexer lexer(argv[2]);
-			Parser parser(lexer);
-			Node* node = parser.parse();
-			Printer prn;
-			node->visit(&prn);
-		}
 	}
-
+	catch (std::exception& ex)
+	{
+		std::cout << ex.what() << std::endl;
+	}
 	return 0;
 }
 

@@ -1,6 +1,6 @@
 #include "stdafx.h"
 #include "Parser.h"
-#include "ConstExpressionCalc.h"
+#include "Exceptions.h"
 
 // Конструктор
 Parser::Parser(Lexer& lexer)
@@ -29,20 +29,10 @@ Node* Parser::parse()
 	tables.push_back(&prog->global);
 
 	while (lex != LEX_EOF)
-	{
 		// Получаем единицу трансляции
-		Node* node = parseUnit();
-		if (node != NULL)
-			prog->addNode(node);
-	}
+		parseUnit(prog);
 
 	return prog;
-}
-
-// Вернуть признак ошибок
-bool Parser::hasErrors()
-{
-	return false;
 }
 
 // Разобрать выражение
@@ -62,44 +52,243 @@ Node* Parser::parseExpression()
 		// Создаем выражение и добавляем узел
 		if (result == NULL)
 			result = new ExpressionNode(n);
-		else if (n == NULL)
-			OnSyntaxError("invalid expression");
-		else
-			result->addAssignment(n);
+		check(n == NULL, "expected assignment expression", lex);
+		result->addAssignment(n);
 		// Если запятая, то получить следующую лексему
 		// и разобрать следующее выражение
 		if (lex == LEX_COMMA)
 			next();
 		else
-		{
 			// иначе разбор окончен
 			break;
-		}
 	}
 	return result;
 }
 
 // Разобрать единицу трансляции
-Node* Parser::parseUnit()
+void Parser::parseUnit(ProgramNode* prog)
 {
+	// Разбираем тип
 	TypeSymbol* type = parseType();
-	ItemSymbol* item = parseDeclarator(type);
-	if (dynamic_cast<VariableSymbol*>(item) != NULL)
-	{
-		while (lex == LEX_COMMA)
+	// Разбираем декларатор
+	Node* left = parseDeclarator(type);
+	// Если переменная
+	if (dynamic_cast<VariableSymbol*>(left->symbol) != NULL)
+	{		
+		while (true)
 		{
-			next();
-			item = parseDeclarator(type);
+			if (lex == LEX_ASSIGNMENT)
+			{
+				Lexeme op = lex;
+				next();
+				Node* right = parseAssignmentExpression();
+				prog->addNode(new BinaryOpNode(op, BinaryOpNode::makeType(op, left, right), left, right));
+			}
+
+			if (lex == LEX_COMMA)
+			{
+				next();
+				left = parseDeclarator(type);
+			}
+			else
+				break;
 		}
 	}
 
 	if (lex == LEX_SEMICOLON)
 	{
 		next();
-		return NULL;
+		return ;
+	}
+}
+
+// разобрать тип
+TypeSymbol* Parser::parseType()
+{
+	TypeSymbol* type = NULL;
+
+	// разбираем псевдоним типа
+	if (lex == LEX_TYPEDEF)
+	{
+		next();
+		type = parseType();
+		check(type == NULL, "expected type definition", lex);
+		check(lex != LEX_ID, "expected typedef identifier", lex);
+		type = addAliasSymbol(type, lex.text);
+		next();
+	}
+	// Это пустой тип
+	else if (lex == LEX_VOID)
+	{
+		next();
+		type = addTypeSymbol("void", 0);
+	}
+	// Это символьный тип
+	else if (lex == LEX_CHAR)
+	{
+		next();
+		type = addTypeSymbol("char", 1);
+	}
+	// Это целый тип
+	else if (lex == LEX_INT)
+	{
+		next();
+		type = addTypeSymbol("int", 4);
+	}
+	// Это вещественный тип
+	else if (lex == LEX_FLOAT)
+	{
+		next();
+		type = addTypeSymbol("float", 4);
+	}	
+	// Разбираем структуру
+	else if (lex == LEX_STRUCT)
+	{
+		type = parseStruct();
+	}
+	// Это идентификатор - возможно имя типа
+	else if (lex == LEX_ID)
+	{
+		type = getTypeSymbol(lex.text);
+		if (type != NULL)
+			next();
+		else
+		{
+			// Это не тип, а что-то другое
+			return NULL;
+		}
+	}
+	// Это константный тип
+	else if (lex == LEX_CONST)
+	{		
+		next();
+		type = parseType();
+		check(type == NULL, "incomplete type", lex);
+		check(type->isConst(), "double \'const\'", lex);
+		check(type->isVoid(), "incorrect type \'const void\'", lex);
+		type = addTypeSymbol(type, TypeSymbol::MODE_CONST);
+	}		
+
+	// Если const стоит после названия типа
+	if (type != NULL && lex == LEX_CONST)
+	{
+		while (lex == LEX_CONST)
+		{
+			next();
+			check(type->isConst(), "double \'const\'", lex);
+			check(type->isVoid(), "incorrect type \'const void\'", lex);
+			type = addTypeSymbol(type, TypeSymbol::MODE_CONST);
+		}
+	}
+	return type;
+}
+
+// разобрать определение
+Node* Parser::parseDeclarator(TypeSymbol* type)
+{
+	Node* node = NULL;
+	type = parsePointer(type);
+	if (lex == LEX_ID)
+	{
+		node = new IdentifierNode(lex, NULL);
+		next();
+	}
+	else if (lex == LEX_LPAREN)
+	{
+		next();
+		node = parseDeclarator(type);
+		check(lex != LEX_RPAREN, "expected \')\'", lex);
+		next();
+	}
+	else
+		check(true, "expected identifier", lex);
+
+	// это массив
+	if (lex == LEX_LBRACKET)
+	{
+		while (lex == LEX_LBRACKET)
+		{			
+			if (node->symbol == NULL)
+				checkSymbol(node->lex.text, false);
+			else
+				check(dynamic_cast<VariableSymbol*>(node->symbol) == NULL, "expected variable before \'[\'", lex);			
+			next();
+			// разбираем размер массива
+			Node* expr = parseConditionalExpression(NULL);
+			// вычисляем выражение			
+			int count = 10;
+			// Модифицируем тип
+			type = addArraySymbol(type, count);
+			if (node->symbol == NULL)
+				node->symbol = addVariableSymbol(node->lex.text, type);
+			else
+				((ItemSymbol*)node->symbol)->type = type;
+			// Проверяем закрывающую скобку
+			check(lex != LEX_RBRACKET, "expected \']\'", lex);
+			next();
+		}
+	}
+	else if (lex == LEX_LPAREN)
+	{
+		// Это функция
+		check(node->symbol != NULL, "expected identifier before \'(\'", lex);
+		checkSymbol(node->lex.text);
+		FunctionSymbol* fsymbol = addFunctionSymbol(node->lex.text, type);
+		node->symbol = fsymbol;
+		next();
+		// разбираем параметры функции
+		SymbolsTable local;
+		tables.push_back(&local);
+		while (lex != LEX_RPAREN)
+		{
+			TypeSymbol * type = parseType();
+			Node* arg = parseDeclarator(type);
+			if (arg != NULL)
+			{
+				check(dynamic_cast<VariableSymbol*>(arg->symbol) == NULL, "function argument must be variable", lex);
+				fsymbol->addParam((VariableSymbol*)arg->symbol);
+				if (lex == LEX_COMMA)
+					next();
+				else
+					break;
+			}
+			else
+				break;
+		}
+		tables.pop_back();
+		check(lex != LEX_RPAREN, "expected \')\'", lex);
+		next();
+	}
+	else if (node->symbol == NULL)
+	{
+		checkSymbol(node->lex.text);
+		node->symbol = addVariableSymbol(node->lex.text, type);
 	}
 
-	return NULL;
+	return node;
+}
+
+// Разобрать указатель
+TypeSymbol* Parser::parsePointer(TypeSymbol* type)
+{
+	// Разбираем модификаторы типа, которые могут следовать после имени типа
+	if (type != NULL)
+	{		
+		while (lex == LEX_MUL)
+		{
+			next();
+			type = addTypeSymbol(type, TypeSymbol::MODE_POINTER);
+	
+			while (lex == LEX_CONST)
+			{
+				next();
+				check(type->isConst(), "double \'const\'", lex);
+				type = addTypeSymbol(type, TypeSymbol::MODE_CONST);
+			}
+		}
+	}
+
+	return type;
 }
 
 // Разобраиь присваивание
@@ -119,11 +308,9 @@ Node* Parser::parseAssignmentExpression()
 			// Получаем выражение с правой стороны
 			Node* right = parseAssignmentExpression();
 			// Если не удалось, то ошибка
-			if (right == NULL)
-				OnSyntaxError("invalid assignment expression");
-			else
-				// Возвращаем узел присваивания
-				return new BinaryOpNode(left, op, right);
+			check(right == NULL, "expected right operand", op);
+			// Возвращаем узел присваивания
+			return new BinaryOpNode(op, BinaryOpNode::makeType(op, left, right), left, right);
 		}
 		else
 		{
@@ -142,7 +329,7 @@ Node* Parser::parseAssignmentExpression()
 Node* Parser::parseConditionalExpression(Node* left)
 {
 	// Получаем операнд слева
-	left = parseLogicalOrExpression(left);
+	left = parseOperation(left, 0);
 	if (left != NULL)
 	{
 		// Это условное выражение
@@ -150,214 +337,72 @@ Node* Parser::parseConditionalExpression(Node* left)
 		{
 			next();
 			Node* first = parseExpression();
-			if (first == NULL)
-				OnSyntaxError("invalid conditional expression");
-			if (lex != LEX_COLON)
-				OnSyntaxError("invalid conditional expression");
+			check(first == NULL, "expected first operand", lex);
+			check(lex != LEX_COLON, "expected \':\'", lex);
 			next();
 			Node* second = parseConditionalExpression(NULL);
-			if (second == NULL)
-				OnSyntaxError("invalid conditional expression");
+			check(second == NULL, "expected second operand", lex);
 			left = new ConditionalNode(left, first, second);
 		}
 	}
 	return left;
 }
 
-// Разобрать логическое ИЛИ
-Node* Parser::parseLogicalOrExpression(Node* left)
+#define PRIORITY_COUNT 10
+#define OPERATION_COUNT 4
+
+// Массив операций
+int operations[PRIORITY_COUNT][OPERATION_COUNT] = {
+	{LEX_LOGICAL_OR, -1, -1, -1},
+	{LEX_LOGICAL_AND, -1, -1, -1},
+	{LEX_OR, -1, -1, -1},
+	{LEX_XOR, -1, -1, -1},
+	{LEX_AND, -1, -1, -1},
+	{LEX_EQUAL, LEX_NOT_EQUAL, -1, -1},
+	{LEX_LESS, LEX_LESS_EQUAL, LEX_GREAT_EQUAL, LEX_GREAT},
+	{LEX_LSHIFT, LEX_RSHIFT},
+	{LEX_ADD, LEX_SUB},
+	{LEX_MUL, LEX_DIV, LEX_PERSENT}
+};
+
+// Проверить операцию
+bool checkOperation(Lexeme lex, int priority)
 {
-	left = parseLogicalAndExpression(left);
-	if (left != NULL)
+	for (int i = 0; i < OPERATION_COUNT; i++)
 	{
-		while (lex == LEX_LOGICAL_OR)
-		{
-			Lexeme op = lex;
-			next();
-			Node* right = parseLogicalAndExpression(NULL);
-			if (right == NULL)
-				OnSyntaxError("invalid logical-or expression");
-			left = new BinaryOpNode(left, op, right);
-		}
+		if (operations[priority][i] == lex.code)
+			return true;
 	}
-	return left;
+	return false;
 }
 
-// Разобрать логическое И
-Node* Parser::parseLogicalAndExpression(Node* left)
+// разобрать операцию
+Node* Parser::parseOperation(Node* left, int priority)
 {
-	left = parseInclusiveOrExpression(left);
-	if (left != NULL)
-	{
-		while (lex == LEX_LOGICAL_AND)
-		{
-			Lexeme op = lex;
-			next();
-			Node* right = parseInclusiveOrExpression(NULL);
-			if (right == NULL)
-				OnSyntaxError("invalid logical-and expression");
-			left = new BinaryOpNode(left, op, right);
-		}
-	}
-	return left;
-}
-
-// Разобрать побитовое ИЛИ
-Node* Parser::parseInclusiveOrExpression(Node* left)
-{
-	left = parseExclusiveOrExpression(left);
-	if (left != NULL)
-	{
-		while (lex == LEX_OR)
-		{
-			Lexeme op = lex;
-			next();
-			Node* right = parseExclusiveOrExpression(NULL);
-			if (right == NULL)
-				OnSyntaxError("invalid inclusive-or expression");
-			left = new BinaryOpNode(left, op, right);
-		}
-	}
-	return left;
-}
-
-// Разобрать побитовое исключающее ИЛИ
-Node* Parser::parseExclusiveOrExpression(Node* left)
-{
-	left = parseAndExpression(left);
-	if (left != NULL)
-	{
-		while (lex == LEX_XOR)
-		{
-			Lexeme op = lex;
-			next();
-			Node* right = parseAndExpression(NULL);
-			if (right == NULL)
-				OnSyntaxError("invalid exclusive-or expression");
-			left = new BinaryOpNode(left, op, right);
-		}
-	}
-	return left;
-}
-
-// Разобрать побитовое И
-Node* Parser::parseAndExpression(Node* left)
-{
-	left = parseEqualityExpression(left);
-	if (left != NULL)
-	{
-		while (lex == LEX_AND)
-		{
-			Lexeme op = lex;
-			next();
-			Node* right = parseEqualityExpression(NULL);
-			if (right == NULL)
-				OnSyntaxError("invalid and expression");
-			left = new BinaryOpNode(left, op, right);
-		}
-	}
-	return left;
-}
-
-// Разобрать равенство
-Node* Parser::parseEqualityExpression(Node* left)
-{
-	left = parseRelationalExpression(left);
-	if (left != NULL)
-	{
-		while (lex == LEX_EQUAL || lex == LEX_NOT_EQUAL)
-		{
-			Lexeme op = lex;
-			next();
-			Node* right = parseRelationalExpression(NULL);
-			if (right == NULL)
-				OnSyntaxError("invalid equality expression");
-			left = new BinaryOpNode(left, op, right);
-		}
-	}
-	return left;
-}
-
-// разобрать сравнение
-Node* Parser::parseRelationalExpression(Node* left)
-{
-	left = parseShiftExpression(left);
-	if (left != NULL)
-	{
-		while (lex == LEX_LESS || lex == LEX_LESS_EQUAL || lex == LEX_GREAT_EQUAL || lex == LEX_GREAT)
-		{
-			Lexeme op = lex;
-			next();
-			Node* right = parseShiftExpression(NULL);
-			if (right == NULL)
-				OnSyntaxError("invalid relation expression");
-			left = new BinaryOpNode(left, op, right);
-		}
-	}
-	return left;
-}
-
-// разобрать сдвиг
-Node* Parser::parseShiftExpression(Node* left)
-{
-	left = parseAdditiveExpression(left);
-	if (left != NULL)
-	{
-		while (lex == LEX_LSHIFT || lex == LEX_RSHIFT)
-		{
-			Lexeme op = lex;
-			next();
-			Node* right = parseAdditiveExpression(NULL);
-			if (right == NULL)
-				OnSyntaxError("invalid shift expression");
-			left = new BinaryOpNode(left, op, right);
-		}
-	}
-	return left;
-}
-
-// разобать сложение
-Node* Parser::parseAdditiveExpression(Node* left)
-{
-	left = parseMultiplicativeExpression(left);
-	if (left != NULL)
-	{
-		while (lex == LEX_ADD || lex == LEX_SUB)
-		{
-			Lexeme op = lex;
-			next();
-			Node* right = parseMultiplicativeExpression(NULL);
-			if (right == NULL)
-				OnSyntaxError("invalid additive expression");
-			left = new BinaryOpNode(left, op, right);
-		}
-	}
-	return left;
-}
-
-// Разобрать умножение
-Node* Parser::parseMultiplicativeExpression(Node* left)
-{
-	if (left == NULL)
+	if (priority < PRIORITY_COUNT - 1)
+		left = parseOperation(left, priority + 1);
+	else if (left == NULL)
 		left = parseCastExpression();
+
 	if (left != NULL)
 	{
-		while (lex == LEX_MUL || lex == LEX_DIV || lex == LEX_PERSENT)
+		while (checkOperation(lex, priority))
 		{
 			Lexeme op = lex;
 			next();
-			Node* right = parseCastExpression();
-			if (right == NULL)
-				OnSyntaxError("invalid multiplicative expression");
-			left = new BinaryOpNode(left, op, right);
+			Node* right = parseOperation(NULL, priority + 1);
+			check(right == NULL, "expected right operand", lex);
+			left = new BinaryOpNode(op, BinaryOpNode::makeType(op, left, right), left, right);
 		}
 	}
+
 	return left;
 }
 
 // Разобрать приведение типа
 Node* Parser::parseCastExpression()
 {
+	/*
 	if (lex == LEX_LPAREN)
 	{
 		Lexeme op = lex;
@@ -369,17 +414,18 @@ Node* Parser::parseCastExpression()
 			Lexeme type = lex;
 			next();
 			if (lex != LEX_RPAREN)
-				OnSyntaxError("invalid cast expression");
+				onSyntaxError("expected \')\'");
 			next();
 			// разбираем приводимое выражение
 			Node* right = parseCastExpression();
 			if (right == NULL)
-				OnSyntaxError("invalid cast expression");
-			return new BinaryOpNode(NULL, op, right);
+				onSyntaxError("expected operand");
+			return new UnaryOpNode(UnaryOpNode::makeType(op, right), op, right, false);
 		}
 		// Это не тип, делаем возврат
 		back();
 	}
+	*/
 	
 	// разбираем унарное выражение
 	return parseUnaryExpression();
@@ -392,28 +438,29 @@ Node* Parser::parseUnaryExpression()
 	{
 		Lexeme op = lex;
 		next();
-		Node* node = parseUnaryExpression();
-		if (node == NULL)
-			OnSyntaxError("invalid unary expression");
-		return new UnaryOpNode(node, op, false);
+		Node* right = parseUnaryExpression();
+		check(right == NULL, "expected operand", lex);
+		return new UnaryOpNode(op, UnaryOpNode::makeType(op, right, false), right, false);
 	}
 	else if (isUnaryOperator())
 	{
 		Lexeme op = lex;
 		next();
-		Node* node = parseCastExpression();
-		if (node == NULL)
-			OnSyntaxError("invalid unary expression");
-		return new UnaryOpNode(node, op, false);
+		Node* right = parseCastExpression();
+		check(right == NULL, "expected operand", lex);
+		return new UnaryOpNode(op, UnaryOpNode::makeType(op, right, false), right, false);
 	}
 	else if (lex == LEX_SIZEOF)
 	{
 		Lexeme op = lex;
 		next();
-		Node* node = parseUnaryExpression();
-		if (node == NULL)
-			OnSyntaxError("invalid unary expression");
-		return new UnaryOpNode(node, op, false);
+		check(lex != LEX_LPAREN, "expected \'(\'", lex);
+		next();
+		Node* right = parseUnaryExpression();
+		check(right == NULL, "expected operand", lex);
+		check(lex != LEX_RPAREN, "expected \')\'", lex);
+		next();
+		return new UnaryOpNode(op, UnaryOpNode::makeType(op, right, false), right, false);
 	}
 	else
 		return parsePostfixExpression();
@@ -430,48 +477,64 @@ Node* Parser::parsePostfixExpression()
 			// Если обращение к элементу массива
 			if (lex == LEX_LBRACKET)
 			{
+				check(!left->getType()->isArray(), "left operand of \'[\' must be array", lex);
 				next();
 				Node* idx = parseExpression();
-				if (idx == NULL)
-					OnSyntaxError("invalid array index");
-				if (lex != LEX_RBRACKET)
-					OnSyntaxError("invalid array index");
+				check(idx == NULL, "invalid array index", lex);
+				check(lex != LEX_RBRACKET, "expected \']\'", lex);
 				next();
-				left = new ArrayNode(left, idx);
+				left = new ArrayNode(left->getType()->baseType, left, idx);
 			}
 			// Если вызов
 			else if (lex == LEX_LPAREN)
-			{
+			{			
+				check(dynamic_cast<FunctionSymbol*>(left->symbol) == NULL, "left operand of \'(\' must be function", lex);
 				next();
-				FuncCallNode* fnode = new FuncCallNode(left);
+				FuncCallNode* fnode = new FuncCallNode(left->symbol, left);
 				left = fnode;
 				// Разбор аргументов
 				while (true)
 				{
 					Node* arg = parseAssignmentExpression();
-					fnode->addArgument(arg);
-					if (lex != LEX_COMMA)
+					if (arg)
+					{
+						fnode->addArgument(arg);
+						if (lex != LEX_COMMA)
+							break;
+						next();
+					}
+					else
 						break;
-					next();
 				}
 				// Закрывающая скобка
-				if (lex != LEX_RPAREN)
-					OnSyntaxError("invalid function call");				
+				check(lex != LEX_RPAREN, "expected \')\'", lex);
 				next();
 			}
 			// Если обращение к элементу структуры
 			else if (lex == LEX_DOT || lex == LEX_ARROW)
 			{
+				// Проверяем тип
+				TypeSymbol* type = left->getType();
+				check(lex == LEX_DOT && !type->isStruct(), "left operand of \'.\' must be struct", lex);
+				if (lex == LEX_ARROW)
+				{
+					check(!type->isPointer() || !type->baseType->isStruct(), "left operand of \'->\' must be pointer to struct", lex);
+					type = type->baseType;
+				}
 				Lexeme op = lex;
-				next();
-				if (lex != LEX_ID)
-					OnSyntaxError("expected identifier");
-				left = new BinaryOpNode(left, op, new IdentifierNode(lex));
+				next();		
+				// Проверяем название поля структуры
+				check(lex != LEX_ID, "expected identifier", lex);
+				StructSymbol* stype = (StructSymbol*)type;
+				VariableSymbol* field = stype->findFieldByName(lex.text);
+				check(field == NULL, "unknown field", lex);
+				Node* right = new IdentifierNode(lex, field);
+				left = new BinaryOpNode(op, field->type, left, right);
 				next();
 			}
 			else if (lex == LEX_INCREMENT || lex == LEX_DECREMENT)
 			{
-				left = new UnaryOpNode(left, lex, true);
+				left = new UnaryOpNode(lex, UnaryOpNode::makeType(lex, left, true), left, true);
 				next();
 			}
 			else
@@ -487,17 +550,37 @@ Node* Parser::parsePrimaryExpression()
 	Node* result = NULL;
 	if (lex == LEX_ID)
 	{
-		result = new IdentifierNode(lex);
+		Symbol* symbol = getSymbol(lex.text);
+		check(symbol == NULL, "unknown identifier", lex);
+		check(symbol->isType(), "expected variable or function", lex);
+		result = new IdentifierNode(lex, symbol);
 		next();
 	}
-	else if (lex == LEX_INT_VALUE || lex == LEX_FLOAT_VALUE || lex == LEX_CHAR_VALUE)
+	else if (lex == LEX_CHAR_VALUE || lex == LEX_INT_VALUE || lex == LEX_FLOAT_VALUE || lex == LEX_STRING_VALUE)
 	{
-		result = new ValueNode(lex);
-		next();
-	}
-	else if (lex == LEX_STRING_VALUE)
-	{
-		result = new ValueNode(lex);
+		TypeSymbol* type = NULL;
+		if (lex == LEX_CHAR_VALUE)
+		{
+			type = addTypeSymbol("char", 1);
+			type = addTypeSymbol(type, TypeSymbol::MODE_CONST);
+		}
+		else if (lex == LEX_INT_VALUE)
+		{
+			type = addTypeSymbol("int", 4);
+			type = addTypeSymbol(type, TypeSymbol::MODE_CONST);
+		}
+		else if (lex == LEX_FLOAT_VALUE)
+		{
+			type = addTypeSymbol("float", 4);
+			type = addTypeSymbol(type, TypeSymbol::MODE_CONST);
+		}
+		else
+		{
+			type = addTypeSymbol("char", 1);
+			type = addTypeSymbol(type, TypeSymbol::MODE_CONST);
+			type = addTypeSymbol(type, TypeSymbol::MODE_POINTER);
+		}
+		result = new ValueNode(lex, type);
 		next();
 	}
 	else if (lex == LEX_LPAREN)
@@ -508,129 +591,11 @@ Node* Parser::parsePrimaryExpression()
 			back();
 		else
 		{
-			if (lex != LEX_RPAREN)
-				OnSyntaxError("expected close parentness");
+			check(lex != LEX_RPAREN, "expected close parentness", lex);
 			next();
 		}
 	}
 	return result;
-}
-
-// разобрать тип
-TypeSymbol* Parser::parseType()
-{
-	TypeSymbol* type = NULL;
-
-	// разбираем псевдоним типа
-	if (lex == LEX_TYPEDEF)
-	{
-		next();
-		type = parseType();
-		if (type == NULL)
-			OnSyntaxError("expected type definition");
-		if (lex != LEX_ID)
-			OnSyntaxError("expected typedef identifier");
-		if (findSymbolByName(lex.text.c_str()) != NULL)
-			OnSyntaxError("identifier already used");
-		type = (TypeSymbol*)findOrAddSymbol(new AliasSymbol(type, lex.text));
-		next();
-	}
-	// Это пустой тип
-	else if (lex == LEX_VOID)
-	{
-		next();
-		type = (TypeSymbol*)findOrAddSymbol(new TypeSymbol("void", 0));
-	}
-	// Это символьный тип
-	else if (lex == LEX_CHAR)
-	{
-		next();
-		type = (TypeSymbol*)findOrAddSymbol(new TypeSymbol("char", 1));
-	}
-	// Это целый тип
-	else if (lex == LEX_INT)
-	{
-		next();
-		type = (TypeSymbol*)findOrAddSymbol(new TypeSymbol("int", 4));
-	}
-	// Это вещественный тип
-	else if (lex == LEX_FLOAT)
-	{
-		next();
-		type = (TypeSymbol*)findOrAddSymbol(new TypeSymbol("float", 4));
-	}	
-	// Разбираем структуру
-	else if (lex == LEX_STRUCT)
-	{
-		type = parseStruct();
-	}
-	// Это идентификатор - возможно имя типа
-	else if (lex == LEX_ID)
-	{
-		type = (TypeSymbol*)findSymbolByName(lex.text);
-		if (type != NULL)
-			next();
-		else
-		{
-			// Это не тип, а что-то другое
-			back();
-			return NULL;
-		}
-	}
-	// Это константный тип
-	else if (lex == LEX_CONST)
-	{		
-		next();
-		type = parseType();
-		if (type == NULL)
-			OnSyntaxError("incomplete type");
-		if (type->isConst())
-			OnSyntaxError("double \'const\'");
-		if (type->isVoid())
-			OnSyntaxError("incorrect type \'const void\'");
-		type = (TypeSymbol*)findOrAddSymbol(new TypeSymbol(type, TypeSymbol::MODE_CONST));
-	}		
-
-	// Если const стоит после названия типа
-	if (type != NULL && lex == LEX_CONST)
-	{
-		while (lex == LEX_CONST)
-		{
-			next();
-			if (type->isConst())
-				OnSyntaxError("double \'const\'");
-			if (type->isVoid())
-				OnSyntaxError("incorrect type \'const void\'");
-			type = (TypeSymbol*)findOrAddSymbol(new TypeSymbol(type, TypeSymbol::MODE_CONST));
-		}
-	}
-
-
-	return type;
-}
-
-// Разобрать указатель
-TypeSymbol* Parser::parsePointer(TypeSymbol* type)
-{
-	// Разбираем модификаторы типа, которые могут следовать после имени типа
-	if (type != NULL)
-	{		
-		while (lex == LEX_MUL)
-		{
-			next();
-			type = (TypeSymbol*)findOrAddSymbol(new TypeSymbol(type, TypeSymbol::MODE_POINTER));
-	
-			while (lex == LEX_CONST)
-			{
-				next();
-				if (type->isConst())
-					OnSyntaxError("double \'const\'");
-				type = (TypeSymbol*)findOrAddSymbol(new TypeSymbol(type, TypeSymbol::MODE_CONST));
-			}
-		}
-	}
-
-	return type;
 }
 
 // Разобрать структуру
@@ -647,87 +612,6 @@ TypeSymbol* Parser::parseStruct()
 		symbol = new StructSymbol("");
 
 	return symbol;
-}
-
-// разобрать определение
-ItemSymbol* Parser::parseDeclarator(TypeSymbol* type)
-{
-	ItemSymbol* item = NULL;
-	type = parsePointer(type);
-	Lexeme name;
-	if (lex == LEX_ID)
-	{
-		name = lex;
-		next();
-	}
-	else if (lex == LEX_LPAREN)
-	{
-		item = parseDeclarator(type);
-		if (lex != LEX_RPAREN)
-			OnSyntaxError("expected \')\'");
-		next();
-	}
-
-	// это массив
-	if (lex == LEX_LBRACKET)
-	{
-		while (lex == LEX_LBRACKET)
-		{
-			next();
-			// Если это не переменная, то ошибка
-			if (item != NULL && dynamic_cast<VariableSymbol*>(item) == NULL)
-				OnSyntaxError("invalid array declaration");
-			// разбираем размер массива
-			Node* node = parseConditionalExpression(NULL);
-			// вычисляем выражение
-			ConstExpressionCalc calc;
-			if (!calc.calculate(node))
-				OnSyntaxError(calc.errorMsg().c_str());
-			int count = calc.asInt();
-			// Модифицируем тип
-			type = (TypeSymbol*)findOrAddSymbol(new ArraySymbol(type, count));
-			if (item == NULL)
-			{
-				if (findSymbolByName(name.text, false))
-					OnSyntaxError("name already used");
-				item = new VariableSymbol(name.text, type);
-				addSymbol(item);
-			}
-			else
-				item->type = type;
-			// Проверяем закрывающую скобку
-			if (lex != LEX_RBRACKET)
-				OnSyntaxError("expected \']\'");
-			next();
-		}
-	}
-	else if (lex == LEX_LPAREN)
-	{
-		next();
-
-		// Это функция
-		if (item != NULL)
-			OnSyntaxError("invalid function declaration");
-		if (findSymbolByName(name.text))
-			OnSyntaxError("name already used");
-		item = new FunctionSymbol(name.text, type);
-		addSymbol(item);
-
-		// разбираем параметры функции
-
-		if (lex != LEX_RPAREN)
-			OnSyntaxError("expected \')\'");
-		next();
-	}
-	else if (item == NULL)
-	{
-		if (findSymbolByName(name.text, false))
-			OnSyntaxError("name already used");
-		item = new VariableSymbol(name.text, type);
-		addSymbol(item);
-	}
-
-	return item;
 }
 
 // Получить следующую лексему
@@ -766,6 +650,13 @@ void Parser::back()
 	buffer.pop_back();
 }
 
+// Сообщение о синтаксической ошибке
+void Parser::check(bool cond, const char* msg, Lexeme l)
+{
+	if (cond)
+		throw SyntaxException(msg, l.line, l.col);
+}
+
 // Проверить, что лексема является унарной операцией
 bool Parser::isUnaryOperator()
 {
@@ -800,51 +691,92 @@ bool Parser::isTypeName()
 	return false;
 }
 
-// Поиск символа
-Symbol* Parser::findSymbolByName(std::string name, bool forceAll)
+// Проверить символ
+void Parser::checkSymbol(std::string name, bool forceAll)
 {
-	// Посик во всех таблицах
 	if (forceAll)
-	{
 		for (int i = tables.size() - 1; i >= 0; i--)
 		{
 			Symbol* s = tables[i]->findByName(name);
-			if (s != NULL)
-				return s;
+			check(s != NULL, "identifier already used", lex);
 		}
-	}
 	else
-	{
-		// Поиск в текущей таблице
-		return tables.back()->findByName(name);
-	}
+		check(tables.back()->findByName(name), "identifier already used", lex);
+}
 
+// найти тип
+TypeSymbol* Parser::getTypeSymbol(std::string name)
+{
+	return dynamic_cast<TypeSymbol*>(tables.front()->findByName(name));
+}
+
+// Добавить тип
+TypeSymbol* Parser::addTypeSymbol(std::string name, int length)
+{
+	TypeSymbol* type = getTypeSymbol(name);
+	if (!type)
+	{
+		type = new TypeSymbol(name, length);
+		tables.front()->addSymbol(type);
+	}
+	return type;
+}
+
+// Добавить тип
+TypeSymbol* Parser::addTypeSymbol(TypeSymbol* baseType, int mode)
+{
+	TypeSymbol* type = getTypeSymbol(TypeSymbol::makeName(baseType, mode));
+	if (!type)
+	{
+		type = new TypeSymbol(baseType, mode);
+		tables.front()->addSymbol(type);
+	}
+	return type;
+}
+
+// Добавить псевдоним
+AliasSymbol* Parser::addAliasSymbol(TypeSymbol* baseType, std::string name)
+{
+	checkSymbol(name);
+	AliasSymbol* type = new AliasSymbol(baseType, name);
+	tables.front()->addSymbol(type);
+	return type;
+}
+
+// Добавить массив
+ArraySymbol* Parser::addArraySymbol(TypeSymbol* baseType, int count)
+{
+	ArraySymbol* type = new ArraySymbol(baseType, count);
+	tables.front()->addSymbol(type);
+	return type;
+}
+
+// Получить перемнную или функцию
+Symbol* Parser::getSymbol(std::string name)
+{
+	for (int i = tables.size() - 1; i >= 0; i--)
+	{
+		Symbol* s = tables[i]->findByName(name);
+		if (s)
+			return s;
+	}
 	return NULL;
 }
 
-// Поиск  символа или добавить
-Symbol* Parser::findOrAddSymbol(Symbol* symbol, bool forceAll)
+// Добавить переменную
+VariableSymbol* Parser::addVariableSymbol(std::string name, TypeSymbol* type)
 {
-	// Поиск символа
-	Symbol* s = findSymbolByName(symbol->name, forceAll);
-	if (s != NULL)
-		return s;
-	// Добавить символ
-	tables.back()->addSymbol(symbol);
-	return symbol;
+	checkSymbol(name, false);
+	VariableSymbol* var = new VariableSymbol(name, type);
+	tables.back()->addSymbol(var);
+	return var;
 }
 
-// Добавить символ
-void Parser::addSymbol(Symbol* symbol)
+// Добавить функцию
+FunctionSymbol* Parser::addFunctionSymbol(std::string name, TypeSymbol* type)
 {
-	// Добавить символ
-	tables.back()->addSymbol(symbol);
-}
-
-// Сообщение о синтаксической ошибке
-void Parser::OnSyntaxError(const char* msg)
-{
-	char c[1000];
-	sprintf(c, "Syntax error: %d:%d %s", lex.line, lex.col, msg);
-	throw std::exception(c);
+	checkSymbol(name);
+	FunctionSymbol* f = new FunctionSymbol(name, type);
+	tables.front()->addSymbol(f);
+	return f;
 }

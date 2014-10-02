@@ -1,7 +1,7 @@
 #pragma once
 
 #include "Symbols.h"
-#include "Node.h"
+#include "Nodes.h"
 
 class Printer : public ISymbolVisitor, public INodeVisitor
 {
@@ -57,7 +57,9 @@ private:
 	// Отступ
 	int spaces;
 	// Счетчик таблиц
-	int tablesCount;
+	int tableCount;
+	// счетчик деревьев
+	int treeCount;
 	// Вывод короткого названия 
 	bool shortName;
 };

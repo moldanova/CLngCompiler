@@ -76,33 +76,31 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="ConstExpressionCalc.cpp" />
+    <Text Include="ReadMe.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="Exceptions.cpp" />
     <ClCompile Include="FlagHandler.cpp" />
     <ClCompile Include="Lexeme.cpp" />
     <ClCompile Include="Lexer.cpp" />
     <ClCompile Include="main.cpp" />
-    <ClCompile Include="Node.cpp" />
+    <ClCompile Include="Nodes.cpp" />
     <ClCompile Include="Parser.cpp" />
     <ClCompile Include="Printer.cpp" />
     <ClCompile Include="stdafx.cpp" />
     <ClCompile Include="Symbols.cpp" />
-    <ClCompile Include="Value.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="ConstExpressionCalc.h" />
+    <ClInclude Include="Exceptions.h" />
     <ClInclude Include="FlagHandler.h" />
     <ClInclude Include="Lexeme.h" />
     <ClInclude Include="Lexer.h" />
-    <ClInclude Include="Node.h" />
+    <ClInclude Include="Nodes.h" />
     <ClInclude Include="Parser.h" />
     <ClInclude Include="Printer.h" />
     <ClInclude Include="stdafx.h" />
     <ClInclude Include="Symbols.h" />
     <ClInclude Include="targetver.h" />
-    <ClInclude Include="Value.h" />
-  </ItemGroup>
-  <ItemGroup>
-    <Text Include="ReadMe.txt" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

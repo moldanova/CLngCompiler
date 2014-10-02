@@ -1,8 +1,9 @@
 #pragma once
 
 #include "Lexer.h"
-#include "Node.h"
 #include "Symbols.h"
+#include "Nodes.h"
+
 
 // Класс синтаксического анализатора
 class Parser
@@ -16,35 +17,21 @@ public:
 	Node* parse();
 	// Разобрать выражение
 	Node* parseExpression();
-	// Вернуть признак ошибок
-	bool hasErrors();
 private:	
 	// Разобрать единицу трансляции
-	Node* parseUnit();
+	void parseUnit(ProgramNode* prog);
+	// разобрать тип
+	TypeSymbol* parseType();
+	// разобрать определение
+	Node* parseDeclarator(TypeSymbol* type);
+	// Разобрать указатель
+	TypeSymbol* parsePointer(TypeSymbol* type);
 	// Разобраиь присваивание
 	Node* parseAssignmentExpression();
 	// Разобрать условное выражение
 	Node* parseConditionalExpression(Node* left);
-	// Разобрать логическое ИЛИ
-	Node* parseLogicalOrExpression(Node* left);
-	// Разобрать логическое И
-	Node* parseLogicalAndExpression(Node* left);
-	// Разобрать побитовое ИЛИ
-	Node* parseInclusiveOrExpression(Node* left);
-	// Разобрать побитовое исключающее ИЛИ
-	Node* parseExclusiveOrExpression(Node* left);
-	// Разобрать побитовое И
-	Node* parseAndExpression(Node* left);
-	// Разобрать равенство
-	Node* parseEqualityExpression(Node* left);
-	// разобрать сравнение
-	Node* parseRelationalExpression(Node* left);
-	// разобрать сдвиг
-	Node* parseShiftExpression(Node* left);
-	// разобать сложение
-	Node* parseAdditiveExpression(Node* left);
-	// Разобрать умножение
-	Node* parseMultiplicativeExpression(Node* left);
+	// разобрать операцию
+	Node* Parser::parseOperation(Node* left, int priority);
 	// Разобрать приведение типа
 	Node* parseCastExpression();
 	// разобрать унарные операции
@@ -53,34 +40,44 @@ private:
 	Node* parsePostfixExpression();
 	// Разобрать операнд
 	Node* parsePrimaryExpression();	
-	// разобрать тип
-	TypeSymbol* parseType();
-	// Разобрать указатель
-	TypeSymbol* parsePointer(TypeSymbol* type);
+	
+	
 	// Разобрать структуру
 	TypeSymbol* parseStruct();	
-	// разобрать определение
-	ItemSymbol* parseDeclarator(TypeSymbol* type);
+	
 
 	// Получить следующую лексему
 	void next();
 	// Вернуть лексему назад
 	void back();
+	// Сообщение о синтаксической ошибке
+	void check(bool cond, const char* msg, Lexeme l);
 	// Проверить, что лексема является унарной операцией
 	bool isUnaryOperator();
 	// Проверить что лексема является присваиванием
 	bool isAssignmentOperator();
 	// Проверить, что лексема является именем типа
 	bool isTypeName();
-	// Поиск символа
-	Symbol* findSymbolByName(std::string name, bool forceAll = true);
-	// Поиск  символа или добавить
-	Symbol* findOrAddSymbol(Symbol* symbol, bool forceAll = true);
-	// Добавить символ
-	void addSymbol(Symbol* symbol);
 
-	// Сообщение о синтаксической ошибке
-	void OnSyntaxError(const char* msg);
+
+	// Проверить символ
+	void checkSymbol(std::string name, bool forceAll = true);
+	// найти тип
+	TypeSymbol* getTypeSymbol(std::string name);
+	// Добавить тип
+	TypeSymbol* addTypeSymbol(std::string name, int length);
+	// Добавить тип
+	TypeSymbol* addTypeSymbol(TypeSymbol* baseType, int mode);
+	// Добавить псевдоним
+	AliasSymbol* addAliasSymbol(TypeSymbol* baseType, std::string name);
+	// Добавить массив
+	ArraySymbol* addArraySymbol(TypeSymbol* baseType, int count);
+	// Получить перемнную или функцию
+	Symbol* getSymbol(std::string name);
+	// Добавить переменную
+	VariableSymbol* addVariableSymbol(std::string name, TypeSymbol* type);
+	// Добавить функцию
+	FunctionSymbol* addFunctionSymbol(std::string name, TypeSymbol* type);
 
 	Lexer& lexer;	// Лексический анализатор
 	Lexeme lex;		// Анализируемая лексема

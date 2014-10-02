@@ -16,8 +16,36 @@ public:
 	virtual ~Symbol();
 	// Посетить символ
 	virtual void visit(ISymbolVisitor* visitor);
+	// Признак типа
+	virtual bool isType() { return false; }
+	// Признак левостороннего операнда - переменной
+	virtual bool isLvalue() { return false; }
+	// Признак изменяемой переменной
+	virtual bool isModificableLvalue() { return false; }
 	// Название типа
 	std::string name;
+};
+
+//-------------------------------------------------------------------------
+
+// Класс таблицы имен
+class SymbolsTable
+{
+public:
+	// Конструктор
+	SymbolsTable();
+	// Деструктор
+	virtual ~SymbolsTable();
+	// Посетить символ
+	virtual void visit(ISymbolVisitor* visitor);
+	// добавить символ
+	void addSymbol(Symbol* symbol);
+	// Поиск символа по имени
+	Symbol* findByName(std::string name);
+	// Поиск и добавление
+	Symbol* findOrAdd(Symbol* symbol);
+	// Список типов
+	std::vector<Symbol*> symbols;
 };
 
 //-------------------------------------------------------------------------
@@ -43,6 +71,8 @@ public:
 	virtual ~TypeSymbol();
 	// Посетить символ
 	virtual void visit(ISymbolVisitor* visitor);
+	// Признак типа
+	virtual bool isType() { return true; }
 	// Признак константы
 	bool isConst() { return mode == MODE_CONST; }
 	// Признак указателя
@@ -53,8 +83,20 @@ public:
 	virtual bool isStruct() { return false; }
 	// Признак псевдонима
 	virtual bool isAlias() { return false; }
+	// Признак скалярного типа
+	bool isScalar() { return baseType == NULL ? true : isConst() && baseType->isScalar(); }
+	// Признак типа char
+	bool isChar() { return name == "char" || name == "const char"; }
+	// Признак типа int
+	bool isInt() { return name == "int" || name == "const int"; }
+	// Признак типа float
+	bool isFloat() { return name == "float" || name == "const float"; }
 	// Признак пустого типа
 	bool isVoid() { return name == "void"; }
+	// Сравнение двух типов
+	bool operator == (const TypeSymbol& type);
+	// Проверка возможности конвертирования
+	virtual bool canConvertTo(TypeSymbol* to);
 	// Длина типа
 	int length;
 	// базовый тип
@@ -75,6 +117,10 @@ public:
 	virtual ~AliasSymbol();
 	// Посетить символ
 	virtual void visit(ISymbolVisitor* visitor);
+	// Проверка возможности конвертирования
+	virtual bool canConvertTo(TypeSymbol* to);
+	// Признак псевдонима
+	virtual bool isAlias() { return true; }
 };
 
 //-------------------------------------------------------------------------
@@ -91,8 +137,14 @@ public:
 	virtual ~StructSymbol();
 	// Посетить символ
 	virtual void visit(ISymbolVisitor* visitor);
+	// Проверка возможности конвертирования
+	virtual bool canConvertTo(TypeSymbol* to);
+	// Признак структуры
+	virtual bool isStruct() { return true; }	
 	// Добавить поле
 	void addField(VariableSymbol* field);
+	// Поиск поля по имени
+	VariableSymbol* findFieldByName(std::string name);
 	// Поля структуры
 	std::vector<VariableSymbol*> fields;
 };
@@ -103,12 +155,16 @@ public:
 class ArraySymbol : public TypeSymbol
 {
 public:
+	// Создать имя
+	static std::string makeName(TypeSymbol* baseType, int mode);
 	// Конструктор
 	ArraySymbol(TypeSymbol* baseType, int count);
 	// Деструктор
 	virtual ~ArraySymbol();
 	// Посетить символ
 	virtual void visit(ISymbolVisitor* visitor);
+	// Проверка возможности конвертирования
+	virtual bool canConvertTo(TypeSymbol* to);
 	// Признак массива
 	virtual bool isArray() { return true; }
 	// Количество элементов в массиве
@@ -157,6 +213,10 @@ public:
 	virtual ~VariableSymbol();
 	// Посетить символ
 	virtual void visit(ISymbolVisitor* visitor);
+	// Признак левостороннего операнда - переменной
+	virtual bool isLvalue() { return true; }
+	// Признак изменяемой переменной
+	virtual bool isModificableLvalue() { return !type->isConst(); }
 };
 
 //-------------------------------------------------------------------------
@@ -175,28 +235,6 @@ public:
 	void addParam(VariableSymbol* param);
 	// Параметры функции
 	std::vector<VariableSymbol*> params;
-};
-
-//-------------------------------------------------------------------------
-
-// Класс таблицы имен
-class SymbolsTable
-{
-public:
-	// Конструктор
-	SymbolsTable();
-	// Деструктор
-	virtual ~SymbolsTable();
-	// Посетить символ
-	virtual void visit(ISymbolVisitor* visitor);
-	// добавить символ
-	void addSymbol(Symbol* symbol);
-	// Поиск символа по имени
-	Symbol* findByName(std::string name);
-	// Поиск и добавление
-	Symbol* findOrAdd(Symbol* symbol);
-	// Список типов
-	std::vector<Symbol*> symbols;
 };
 
 //-------------------------------------------------------------------------

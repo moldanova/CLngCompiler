@@ -5,7 +5,8 @@
 // Конструктор
 Printer::Printer()
 {
-	tablesCount = 0;
+	tableCount = 0;
+	treeCount = 0;
 	shortName = false;
 }
 
@@ -18,20 +19,21 @@ Printer::~Printer()
 void Printer::OnSymbol(SymbolsTable* table)
 {
 	spaces = 0;
-	tablesCount++;
-	std::cout << "Symbol table "  << tablesCount << std::endl;
+	tableCount++;
+	std::cout << "Symbol table "  << tableCount << ":" << std::endl;
 	for (int i = 0; i < table->symbols.size(); i++)
 	{
 		std::cout << std::string(spaces, ' ');
 		table->symbols[i]->visit(this);
 		std::cout << std::endl;
 	}
+	std::cout << std::endl;
 }
 
 // Посетить символ
 void Printer::OnSymbol(Symbol* symbol)
 {
-	std::exception("Internal program error");
+	throw std::exception("Internal program error");
 }
 
 // Посетить тип
@@ -76,7 +78,7 @@ void Printer::OnSymbol(StructSymbol* symbol)
 	else
 	{
 		std::cout << "struct " << symbol->name << " {" << std::endl;
-		spaces += 4;
+		spaces += 8;
 		bool old = shortName;
 		shortName = true;
 		for (int i = 0; i < symbol->fields.size(); i++)
@@ -86,7 +88,7 @@ void Printer::OnSymbol(StructSymbol* symbol)
 			std::cout << std::endl;
 		}
 		shortName = old;
-		spaces -= 4;
+		spaces -= 8;
 		std::cout << std::string(spaces, ' ') << "} ";
 	}
 }
@@ -107,7 +109,7 @@ void Printer::OnSymbol(ArraySymbol* symbol)
 // Посетить символ
 void Printer::OnSymbol(ItemSymbol* symbol)
 {
-	std::exception("Internal program error");
+	throw std::exception("Internal program error");
 }
 
 // Посетить константу
@@ -133,12 +135,18 @@ void Printer::OnSymbol(VariableSymbol* symbol)
 // Посетить функцию
 void Printer::OnSymbol(FunctionSymbol* symbol)
 {
-	std::cout << "function " << symbol->name << " (";
+	std::cout << "function " << symbol->name << " (" << std::endl;
 	bool old = shortName;
 	shortName = true;
 	for (int i = 0; i < symbol->params.size(); i++)
 	{
+		if (i > 0)
+			std::cout << std::string(spaces, ' ') << "," << std::endl;
+		spaces += 8;
+		std::cout << std::string(spaces, ' ');
 		symbol->params[i]->visit(this);
+		std::cout << std::endl;
+		spaces -= 8;
 	}	
 	std::cout << ") return ";
 	symbol->type->visit(this);
@@ -148,59 +156,100 @@ void Printer::OnSymbol(FunctionSymbol* symbol)
 // Посетить узел
 void Printer::OnNode(Node* node)
 {
-	std::exception("Internal program error");
+	throw std::exception("Internal program error");
 }
 
 // Посетить узел программы
 void Printer::OnNode(ProgramNode* node)
 {
 	node->global.visit(this);
+	
+	for (int i = 0; i < node->nodes.size(); i++)
+	{
+		spaces = 0;
+		treeCount++;
+		std::cout << "Tree "  << treeCount << ":" << std::endl;
+		node->nodes[i]->visit(this);
+		std::cout << std::endl;
+	}
 }
 
 // Посетить узел выражения
 void Printer::OnNode(ExpressionNode* node)
 {
-	std::exception("Internal program error");
+	for (int i= 0; i < node->nodes.size(); i++)
+	{
+		if (i > 0)
+			std::cout << std::string(spaces, ' ') << "," << std::endl;
+		node->nodes[i]->visit(this);
+		std::cout << std::endl;
+	}
 }
 
 // Посетить узел условного выраженрия
 void Printer::OnNode(ConditionalNode* node)
 {
-	std::exception("Internal program error");
+	throw std::exception("Internal program error");
 }
 
 // Посетить узел бинарной операции
 void Printer::OnNode(BinaryOpNode* node)
 {
-	std::exception("Internal program error");
+	spaces += 8;
+	node->left->visit(this);
+	std::cout << std::endl;
+	spaces -= 8;
+	std::cout << std::string(spaces, ' ') << node->lex.text << " <" << std::endl;
+	spaces += 8;
+	node->right->visit(this);
+	std::cout << std::endl;
+	spaces -= 8;
 }
 
 // Посетить узел унарной операции
 void Printer::OnNode(UnaryOpNode* node)
 {
-	std::exception("Internal program error");
+	throw std::exception("Internal program error");
 }
 
 // Посетить узел значения
 void Printer::OnNode(ValueNode* node)
 {
-	std::exception("Internal program error");
+	std::cout << std::string(spaces, ' ') << node->lex.text;
 }
 
 // Посетить узел идентификатора
 void Printer::OnNode(IdentifierNode* node)
 {
-	std::exception("Internal program error");
+	std::cout << std::string(spaces, ' ') << node->lex.text;
 }
 
 // Посетить узел обращения к массиву
 void Printer::OnNode(ArrayNode* node)
 {
-	std::exception("Internal program error");
+	node->var->visit(this);
+	std::cout << std::endl;
+	std::cout << std::string(spaces, ' ') << "[" << std::endl;
+	spaces += 8;
+	node->idx->visit(this);
+	spaces -= 8;
+	std::cout << std::string(spaces, ' ') << "]" << std::endl;
 }
 
 // Посетить узел вызова функции
 void Printer::OnNode(FuncCallNode* node)
 {
-	std::exception("Internal program error");
+	node->func->visit(this);
+	std::cout << std::endl;
+	std::cout << std::string(spaces, ' ') << "(" << std::endl;	
+	for (int i = 0; i < node->nodes.size(); i++)
+	{
+		if (i > 0)
+			std::cout << std::string(spaces, ' ') << "," << std::endl;
+		spaces += 8;
+		node->nodes[i]->visit(this);		
+		std::cout << std::endl;
+		spaces -= 8;
+	}	
+	std::cout << std::string(spaces, ' ') << ")" << std::endl;
 }

@@ -28,6 +28,53 @@ void Symbol::visit(ISymbolVisitor* visitor)
 
 //-------------------------------------------------------------------------
 
+// Конструктор
+SymbolsTable::SymbolsTable()
+{
+}
+
+// Деструктор
+SymbolsTable::~SymbolsTable()
+{
+	for (int i = 0; i < symbols.size(); i++)
+		delete symbols[i];
+	symbols.clear();
+}
+
+// Посетить символ
+void SymbolsTable::visit(ISymbolVisitor* visitor)
+{
+	visitor->OnSymbol(this);
+}
+
+// добавить символ
+void SymbolsTable::addSymbol(Symbol* symbol)
+{
+	symbols.push_back(symbol);
+}
+
+// Поиск символа по имени
+Symbol* SymbolsTable::findByName(std::string name)
+{
+	for (int i = 0; i < symbols.size(); i++)
+		if (symbols[i]->name == name)
+			return symbols[i];
+	return NULL;
+}
+
+// Поиск и добавление
+Symbol* SymbolsTable::findOrAdd(Symbol* symbol)
+{
+	Symbol* finded = findByName(symbol->name);
+	if (finded != NULL)
+		return finded;
+	addSymbol(symbol);
+	return symbol;
+}
+
+
+//-------------------------------------------------------------------------
+
 // Создать имя
 std::string TypeSymbol::makeName(TypeSymbol* baseType, int mode)
 {
@@ -71,6 +118,54 @@ void TypeSymbol::visit(ISymbolVisitor* visitor)
 	visitor->OnSymbol(this);
 }
 
+// Сравнение двух типов
+bool TypeSymbol::operator == (const TypeSymbol& type)
+{
+	return name == type.name;
+}
+
+// Проверка возможности конвертирования
+bool TypeSymbol::canConvertTo(TypeSymbol* to)
+{
+	// Если псевдоним, то проверяем исходный тип
+	if (dynamic_cast<AliasSymbol*>(to) != NULL)
+		return canConvertTo(to->baseType);
+	// Если типы равны
+	if (*this == *to)
+		return true;
+	// один из типов пустой
+	if (isVoid() || to->isVoid())
+		return false;
+	// Если результирующий тип константный
+	if (to->isConst())
+		return canConvertTo(to->baseType);
+	// Если оба типа указатели
+	if (isPointer() && baseType->isPointer() && to->isPointer() && to->baseType->isPointer())
+		return baseType->canConvertTo(to->baseType);
+	// Правила приведения числовых значений
+	if (name == "const char" && to->name == "char")
+		return true;	
+	if ((name == "char" || name == "const char") && to->name == "int")
+		return true;
+	if ((name == "char" || name == "const char") && to->name == "float")
+		return true;
+	if (name == "const int" && to->name == "int")
+		return true;
+	if ((name == "int" || name == "const int") && to->name == "float")
+		return true;
+	if (name == "const float" && to->name == "float")
+		return true;
+	// Правила приведения указателей
+	if (isPointer() && to->name == "void *")
+		return true;
+	// Правила арифметики с указателями
+	if (isPointer() && to->isInt())
+		return true;
+	if (isInt() && to->isPointer())
+		return true;
+	return false;
+}
+
 //-------------------------------------------------------------------------
 
 // Конструктор
@@ -89,6 +184,12 @@ AliasSymbol::~AliasSymbol()
 void AliasSymbol::visit(ISymbolVisitor* visitor)
 {
 	visitor->OnSymbol(this);
+}
+
+// Проверка возможности конвертирования
+bool AliasSymbol::canConvertTo(TypeSymbol* to)
+{
+	return baseType->canConvertTo(to);
 }
 
 //-------------------------------------------------------------------------
@@ -121,11 +222,26 @@ void StructSymbol::visit(ISymbolVisitor* visitor)
 	visitor->OnSymbol(this);
 }
 
+// Проверка возможности конвертирования
+bool StructSymbol::canConvertTo(TypeSymbol* to)
+{
+	return *this == *to;
+}
+
 // Добавить поле
 void StructSymbol::addField(VariableSymbol* field)
 {
 	fields.push_back(field);
 	length += field->type->length;
+}
+
+// Поиск поля по имени
+VariableSymbol* StructSymbol::findFieldByName(std::string name)
+{
+	for (int i = 0; i < fields.size(); i++)
+		if (fields[i]->name == name)
+			return fields[i];
+	return NULL;
 }
 
 //-------------------------------------------------------------------------
@@ -147,6 +263,12 @@ ArraySymbol::~ArraySymbol()
 void ArraySymbol::visit(ISymbolVisitor* visitor)
 {
 	visitor->OnSymbol(this);
+}
+
+// Проверка возможности конвертирования
+bool ArraySymbol::canConvertTo(TypeSymbol* to)
+{
+	return *this == *to;
 }
 
 //-------------------------------------------------------------------------
@@ -234,51 +356,5 @@ void FunctionSymbol::visit(ISymbolVisitor* visitor)
 void FunctionSymbol::addParam(VariableSymbol* param)
 {
 	params.push_back(param);
-}
-
-//-------------------------------------------------------------------------
-
-// Конструктор
-SymbolsTable::SymbolsTable()
-{
-}
-
-// Деструктор
-SymbolsTable::~SymbolsTable()
-{
-	for (int i = 0; i < symbols.size(); i++)
-		delete symbols[i];
-	symbols.clear();
-}
-
-// Посетить символ
-void SymbolsTable::visit(ISymbolVisitor* visitor)
-{
-	visitor->OnSymbol(this);
-}
-
-// добавить символ
-void SymbolsTable::addSymbol(Symbol* symbol)
-{
-	symbols.push_back(symbol);
-}
-
-// Поиск символа по имени
-Symbol* SymbolsTable::findByName(std::string name)
-{
-	for (int i = 0; i < symbols.size(); i++)
-		if (symbols[i]->name == name)
-			return symbols[i];
-	return NULL;
-}
-
-// Поиск и добавление
-Symbol* SymbolsTable::findOrAdd(Symbol* symbol)
-{
-	Symbol* finded = findByName(symbol->name);
-	if (finded != NULL)
-		return finded;
-	addSymbol(symbol);
-	return symbol;
 }
 
