@@ -1,6 +1,6 @@
 *.exe
-*.suo
-*.sdf
+CLngCompiler.v11.suo
+CLngCompiler.sdf
 *.opensdf
 *.sln
 *.ilk
@@ -9,3 +9,5 @@
 /CLngCompiler/Debug
 *.vcxproj
 *.vcxproj.filters
+*.sublime-project
+*.sublime-workspace
