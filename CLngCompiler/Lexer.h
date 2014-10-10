@@ -80,7 +80,8 @@ class Lexer
 {
 public:
 	// Конструктор
-	Lexer(const char* fileName);
+	Lexer(std::string fileName, std::string outfileName);
+	Lexer(std::string fileName);
 	// деструктор
 	~Lexer();
 	// Получить следующую лексему
@@ -120,6 +121,7 @@ private:
 	bool isSymbol(char c);
 
 	std::ifstream input;	// Входной текстовый файл
+	std::ofstream output;	// Выходной файл
 	char ch;				// Анализируемый символ
 	std::string text;		// Текст лексемы
 	int line;				// Строка текста

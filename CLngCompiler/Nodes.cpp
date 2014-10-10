@@ -50,12 +50,45 @@ void Node::visit(INodeVisitor* visitor)
 //-------------------------------------------------------------------------
 
 // Конструктор
+NodesArrayNode::NodesArrayNode()
+{
+}
+
+// Конструктор
+NodesArrayNode::NodesArrayNode(Symbol* symbol)
+	: Node(symbol)
+{
+}
+
+// Конструктор
+NodesArrayNode::NodesArrayNode(Lexeme lex, Symbol* symbol)
+	: Node(lex, symbol)
+{
+}
+
+// Деструктор
+NodesArrayNode::~NodesArrayNode()
+{
+	for (int i = 0; i < nodes.size(); i++)
+		delete nodes[i];
+	nodes.clear();
+}
+
+// Добавить узел
+void NodesArrayNode::addNode(Node* node)
+{
+	nodes.push_back(node);
+}
+
+//-------------------------------------------------------------------------
+
+// Конструктор
 ProgramNode::ProgramNode()
 {
-	global.addSymbol(new TypeSymbol("void", 0));
-	global.addSymbol(new TypeSymbol("char", 1));
-	global.addSymbol(new TypeSymbol("int", 4));
-	global.addSymbol(new TypeSymbol("float", 4));
+	globals.addSymbol(new TypeSymbol("void", 0));
+	globals.addSymbol(new TypeSymbol("char", 1));
+	globals.addSymbol(new TypeSymbol("int", 4));
+	globals.addSymbol(new TypeSymbol("float", 4));
 }
 
 // Деструктор
@@ -66,36 +99,19 @@ ProgramNode::~ProgramNode()
 	nodes.clear();
 }
 
-// Вывести узел на экран
-/*
-void ProgramNode::print()
-{
-	for (int i = 0; i < nodes.size(); i++)
-	{
-		nodes[i]->print();
-		std::cout << std::endl;
-	}
-}
-*/
-
 // Посетить узел
 void ProgramNode::visit(INodeVisitor* visitor)
 {
 	visitor->OnNode(this);
 }
 
-// Добавить узел
-void ProgramNode::addNode(Node* node)
-{
-	nodes.push_back(node);
-}
-
 //---------------------------------------------------------------------------
 
 // Конструктор
 ExpressionNode::ExpressionNode(Node* node)
+	: NodesArrayNode(node->symbol)
 {
-	addAssignment(node);
+	addNode(node);
 }
 
 // Деструктор
@@ -106,32 +122,10 @@ ExpressionNode::~ExpressionNode()
 	nodes.clear();
 }
 
-// Вывести узел на экран
-/*
-void ExpressionNode::print()
-{
-	if (!nodes.empty())
-	{
-		nodes[0]->print();
-		for (int i = 1; i < nodes.size(); i++)
-		{
-			std::cout << ", ";
-			nodes[i]->print();
-		}
-	}
-}
-*/
-
 // Посетить узел
 void ExpressionNode::visit(INodeVisitor* visitor)
 {
 	visitor->OnNode(this);
-}
-
-// Добавить узел
-void ExpressionNode::addAssignment(Node* node)
-{
-	nodes.push_back(node);
 }
 
 //---------------------------------------------------------------------------
@@ -151,20 +145,6 @@ ConditionalNode::~ConditionalNode()
 	delete first;
 	delete second;
 }
-
-// Вывести узел на экран
-/*
-void ConditionalNode::print()
-{
-	std::cout << "(";
-	left->print();
-	std::cout << "?";
-	first->print();
-	std::cout << ":";
-	second->print();
-	std::cout << ")";
-}
-*/
 
 // Посетить узел
 void ConditionalNode::visit(INodeVisitor* visitor)
@@ -253,6 +233,12 @@ TypeSymbol* BinaryOpNode::makeType(Lexeme lex, Node* left, Node* right)
 	}
 	if (lex == LEX_ADD || lex == LEX_SUB || lex == LEX_MUL || lex == LEX_DIV)
 	{
+		if (ltype->isPointer() && rtype->isPointer())
+			throw SyntaxException("expression must have integral type", lex);
+		if (rtype->isPointer() && (ltype->isInt() || ltype->isChar()))
+			return rtype;
+		if ((rtype->isInt() || rtype->isChar()) && ltype->isPointer())
+			return ltype;
 		bool l2r = ltype->canConvertTo(rtype);
 		bool r2l = rtype->canConvertTo(ltype);
 		if (!l2r && !r2l)
@@ -281,18 +267,6 @@ BinaryOpNode::~BinaryOpNode()
 	delete right;
 }
 
-// Вывести узел на экран
-/*
-void BinaryOpNode::print()
-{
-	std::cout << "(";
-	left->print();
-	std::cout << op.text;
-	right->print();
-	std::cout << ")";
-}
-*/
-
 // Посетить узел
 void BinaryOpNode::visit(INodeVisitor* visitor)
 {
@@ -318,13 +292,13 @@ TypeSymbol* UnaryOpNode::makeType(Lexeme lex, Node* right, bool postfix)
 	if (lex == LEX_AND)
 	{
 		if (!right->symbol->isLvalue())
-			throw SyntaxException("operand must be lvalue", lex);
+			throw SyntaxException("operand of \'&\' must be a lvalue", lex);
 		return new TypeSymbol(type, TypeSymbol::MODE_POINTER);
 	}
 	if (lex == LEX_MUL)
 	{
 		if (!type->isPointer())
-			throw SyntaxException("operand must be pointer", lex);
+			throw SyntaxException("operand of \'*\' must be a pointer", lex);
 		return type->baseType;
 
 	}
@@ -364,31 +338,6 @@ UnaryOpNode::~UnaryOpNode()
 	delete right;
 }
 
-// Вывести узел на экран
-/*
-void UnaryOpNode::print()
-{
-	if (op == LEX_SIZEOF)
-	{
-		std::cout << "sizeof(";
-		node->print();
-		std::cout << ")";
-	}
-	else if (postfix)
-	{
-		std::cout << "(";
-		node->print();
-		std::cout << op.text << ")";
-	}
-	else
-	{
-		std::cout << "(" << op.text;
-		node->print();
-		std::cout << ")";
-	}
-}
-*/
-
 // Посетить узел
 void UnaryOpNode::visit(INodeVisitor* visitor)
 {
@@ -407,14 +356,6 @@ ValueNode::ValueNode(Lexeme lex, Symbol* symbol)
 ValueNode::~ValueNode()
 {
 }
-
-// Вывести узел на экран
-/*
-void ValueNode::print()
-{
-	std::cout << value.text;
-}
-*/
 
 // Посетить узел
 void ValueNode::visit(INodeVisitor* visitor)
@@ -435,14 +376,6 @@ IdentifierNode::~IdentifierNode()
 {
 }
 	
-// Вывести узел на экран
-/*
-void IdentifierNode::print()
-{
-	std::cout << name.text;
-}
-*/
-
 // Посетить узел
 void IdentifierNode::visit(INodeVisitor* visitor)
 {
@@ -466,17 +399,6 @@ ArrayNode::~ArrayNode()
 	delete idx;
 }
 
-// Вывести узел на экран
-/*
-void ArrayNode::print()
-{
-	arr->print();
-	std::cout << "[";
-	idx->print();
-	std::cout << "]";
-}
-*/
-
 // Посетить узел
 void ArrayNode::visit(INodeVisitor* visitor)
 {
@@ -487,7 +409,7 @@ void ArrayNode::visit(INodeVisitor* visitor)
 
 // Конструктор
 FuncCallNode::FuncCallNode(Symbol* symbol, Node* func)
-	: Node(symbol)
+	: NodesArrayNode(symbol)
 {
 	this->func = func;
 }
@@ -501,33 +423,213 @@ FuncCallNode::~FuncCallNode()
 	nodes.clear();
 }
 
-// Вывести узел на экран
-/*
-void FuncCallNode::print()
-{
-	func->print();
-	std::cout << "(";
-	if (!nodes.empty())
-	{
-		nodes[0]->print();
-		for (int i = 1; i < nodes.size(); i++)
-		{
-			std::cout << ", ";
-			nodes[i]->print();
-		}
-	}
-	std::cout << ")";
-}
-*/
-
 // Посетить узел
 void FuncCallNode::visit(INodeVisitor* visitor)
 {
 	visitor->OnNode(this);
 }
 
-// Добавить узел
-void FuncCallNode::addArgument(Node* node)
+//---------------------------------------------------------------------------
+
+// Конструктор
+CompoundNode::CompoundNode()
 {
-	nodes.push_back(node);
+}
+
+// Деструктор
+CompoundNode::~CompoundNode()
+{
+	for (int i = 0; i < nodes.size(); i++)
+		delete nodes[i];
+	nodes.clear();
+}
+
+// Посетить узел
+void CompoundNode::visit(INodeVisitor* visitor)
+{
+	visitor->OnNode(this);
+}
+
+//---------------------------------------------------------------------------
+
+// Конструктор
+FunctionNode::FunctionNode(Symbol* symbol)
+{
+	this->symbol = symbol;
+	this->statement = NULL;
+}
+
+// Деструктор
+FunctionNode::~FunctionNode()
+{
+	if (statement)
+		delete statement;
+}
+
+// Посетить узел
+void FunctionNode::visit(INodeVisitor* visitor)
+{
+	visitor->OnNode(this);
+}
+
+//---------------------------------------------------------------------------
+
+// Конструктор
+IfNode::IfNode(Node* expr, Node* statement1, Node* statement2)
+{
+	this->expr = expr;
+	this->statement1 = statement1;
+	this->statement2 = statement2;
+}
+
+// Деструктор
+IfNode::~IfNode()
+{
+	if (expr)
+		delete expr;
+	if (statement1)
+		delete statement1;
+	if (statement2)
+		delete statement2;
+}
+
+// Посетить узел
+void IfNode::visit(INodeVisitor* visitor)
+{
+	visitor->OnNode(this);
+}
+
+//---------------------------------------------------------------------------
+
+// Конструктор
+WhileNode::WhileNode(Node* expr, Node* statement)
+{
+	this->expr = expr;
+	this->statement = statement;
+}
+
+// Деструктор
+WhileNode::~WhileNode()
+{
+	if (expr)
+		delete expr;
+	if (statement)
+		delete statement;
+}
+
+// Посетить узел
+void WhileNode::visit(INodeVisitor* visitor)
+{
+	visitor->OnNode(this);
+}
+
+//---------------------------------------------------------------------------
+
+// Конструктор
+DoNode::DoNode(Node* expr, Node* statement)
+{
+	this->expr = expr;
+	this->statement = statement;
+}
+
+// Деструктор
+DoNode::~DoNode()
+{
+	if (expr)
+		delete expr;
+	if (statement)
+		delete statement;
+}
+
+// Посетить узел
+void DoNode::visit(INodeVisitor* visitor)
+{
+	visitor->OnNode(this);
+}
+
+//---------------------------------------------------------------------------
+
+// Конструктор
+ForNode::ForNode(Node* expr1, Node* expr2, Node* expr3, Node* statement)
+{
+	this->expr1 = expr1;
+	this->expr2 = expr2;
+	this->expr3 = expr3;
+	this->statement = statement;
+}
+
+// Деструктор
+ForNode::~ForNode()
+{
+	if (expr1)
+		delete expr1;
+	if (expr2)
+		delete expr2;
+	if (expr3)
+		delete expr3;
+	if (statement)
+		delete statement;
+}
+
+// Посетить узел
+void ForNode::visit(INodeVisitor* visitor)
+{
+	visitor->OnNode(this);
+}
+
+//---------------------------------------------------------------------------
+
+// Конструктор
+BreakNode::BreakNode()
+{
+}
+
+// Деструктор
+BreakNode::~BreakNode()
+{
+}
+
+// Посетить узел
+void BreakNode::visit(INodeVisitor* visitor)
+{
+	visitor->OnNode(this);
+}
+
+//---------------------------------------------------------------------------
+
+// Конструктор
+ContinueNode::ContinueNode()
+{
+}
+
+// Деструктор
+ContinueNode::~ContinueNode()
+{
+}
+
+// Посетить узел
+void ContinueNode::visit(INodeVisitor* visitor)
+{
+	visitor->OnNode(this);
+}
+
+//---------------------------------------------------------------------------
+
+// Конструктор
+ReturnNode::ReturnNode(Node* expr)
+{
+	this->expr = expr;
+}
+
+// Деструктор
+ReturnNode::~ReturnNode()
+{
+	if (expr)
+		delete expr;
+}
+
+// Посетить узел
+void ReturnNode::visit(INodeVisitor* visitor)
+{
+	visitor->OnNode(this);
 }

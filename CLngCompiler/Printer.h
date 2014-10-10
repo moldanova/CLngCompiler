@@ -7,9 +7,12 @@ class Printer : public ISymbolVisitor, public INodeVisitor
 {
 public:
 	// Конструктор
-	Printer();
+	Printer(std::string fileName);
 	// деструктор
 	virtual ~Printer();
+
+	// Вывести текст
+	Printer& operator << (std::string txt);
 
 	// Посетить таблицу символов
 	virtual void OnSymbol(SymbolsTable* table);
@@ -52,8 +55,28 @@ public:
 	virtual void OnNode(ArrayNode* node);
 	// Посетить узел вызова функции
 	virtual void OnNode(FuncCallNode* node);
+	// Посетить узел
+	virtual void OnNode(CompoundNode* node);
+	// Посетить узел функции
+	virtual void OnNode(FunctionNode* node);
+	// Посетить узел
+	virtual void OnNode(IfNode* node);
+	// Посетить узел
+	virtual void OnNode(WhileNode* node);
+	// Посетить узел
+	virtual void OnNode(DoNode* node);
+	// Посетить узел
+	virtual void OnNode(ForNode* node);
+	// Посетить узел
+	virtual void OnNode(BreakNode* node);
+	// Посетить узел
+	virtual void OnNode(ContinueNode* node);
+	// Посетить узел
+	virtual void OnNode(ReturnNode* node);
 
 private:
+	// Выходной файл
+	std::ofstream output;	
 	// Отступ
 	int spaces;
 	// Счетчик таблиц

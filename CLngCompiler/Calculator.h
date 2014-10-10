@@ -1,0 +1,54 @@
+#pragma once
+
+#include "Symbols.h"
+#include "Nodes.h"
+#include "Value.h"
+
+// Класс для вычисления константных выражений
+class Calculator : INodeVisitor
+{
+public:
+	// Калькулятор
+	Calculator(Node* expr);
+	// Посетить узел
+	virtual void OnNode(Node* node);
+	// Посетить узел программы
+	virtual void OnNode(ProgramNode* node);
+	// Посетить узел выражения
+	virtual void OnNode(ExpressionNode* node);	
+	// Посетить узел условного выраженрия
+	virtual void OnNode(ConditionalNode* node);
+	// Посетить узел бинарной операции
+	virtual void OnNode(BinaryOpNode* node);
+	// Посетить узел унарной операции
+	virtual void OnNode(UnaryOpNode* node);	
+	// Посетить узел значения
+	virtual void OnNode(ValueNode* node);
+	// Посетить узел идентификатора
+	virtual void OnNode(IdentifierNode* node);
+	// Посетить узел обращения к массиву
+	virtual void OnNode(ArrayNode* node);
+	// Посетить узел вызова функции
+	virtual void OnNode(FuncCallNode* node);
+	// Посетить узел
+	virtual void OnNode(CompoundNode* node);
+	// Посетить узел функции
+	virtual void OnNode(FunctionNode* node);
+	// Посетить узел
+	virtual void OnNode(IfNode* node);
+	// Посетить узел
+	virtual void OnNode(WhileNode* node);
+	// Посетить узел
+	virtual void OnNode(DoNode* node);
+	// Посетить узел
+	virtual void OnNode(ForNode* node);
+	// Посетить узел
+	virtual void OnNode(BreakNode* node);
+	// Посетить узел
+	virtual void OnNode(ContinueNode* node);
+	// Посетить узел
+	virtual void OnNode(ReturnNode* node);
+	// Результат
+	Value result;
+};
+

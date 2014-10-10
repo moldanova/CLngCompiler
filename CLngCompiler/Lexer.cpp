@@ -1,6 +1,77 @@
 #include "stdafx.h"
 #include "Lexer.h"
 
+// Названия лексем для вывода на экран
+const char* lexName[] = {
+	"LEX_NOT",
+	"LEX_PERSENT",
+	"LEX_AND",
+	"LEX_LPAREN",
+	"LEX_RPAREN",
+	"LEX_MUL",
+	"LEX_ADD",
+	"LEX_COMMA",
+	"LEX_SUB",
+	"LEX_DOT",
+	"LEX_DIV",
+	"LEX_COLON",
+	"LEX_SEMICOLON",
+	"LEX_LESS",
+	"LEX_ASSIGNMENT",
+	"LEX_GREAT",
+	"LEX_QUESTION",
+	"LEX_LBRACKET",
+	"LEX_RBRACKET",
+	"LEX_XOR",
+	"LEX_LBRACE",
+	"LEX_OR",
+	"LEX_RBRACE",
+	"LEX_INVERT",
+	"LEX_NOT_EQUAL",
+	"LEX_PERSENT_ASSIGNMENT",
+	"LEX_LOGICAL_AND",
+	"LEX_AND_ASSIGNMENT",
+	"LEX_MUL_ASSIGNMENT",
+	"LEX_INCREMENT",
+	"LEX_ADD_ASSIGNMENT",
+	"LEX_DECREMENT",
+	"LEX_SUB_ASSIGNMENT",
+	"LEX_PTR",
+	"LEX_DIV_ASSIGNMENT",
+	"LEX_LSHIFT",
+	"LEX_LESS_EQUAL",
+	"LEX_LSHIFT_ASSIGNMENT",
+	"LEX_EQUAL",
+	"LEX_GREAT_EQUAL",
+	"LEX_RSHIFT",
+	"LEX_RSHIFT_ASSIGNMENT",
+	"LEX_XOR_ASSIGNMENT",
+	"LEX_OR_ASSIGNMENT",
+	"LEX_LOGICAL_OR",
+	"LEX_ID",
+	"LEX_BREAK",
+	"LEX_CHAR",
+	"LEX_CONST",
+	"LEX_DO",
+	"LEX_ELSE",
+	"LEX_FLOAT",
+	"LEX_FOR",
+	"LEX_IF",
+	"LEX_INT",
+	"LEX_RETURN",
+	"LEX_SIZEOF",
+	"LEX_STRUCT",
+	"LEX_TYPEDEF",
+	"LEX_VOID",
+	"LEX_WHILE",
+	"LEX_INT_VALUE",
+	"LEX_FLOAT_VALUE",
+	"LEX_STRING_VALUE",
+	"LEX_CHAR_VALUE",
+	"LEX_EOF",
+	"LEX_ERROR"
+};
+
 #define PARSELEX(c1, lex1) \
 	if (ch == c1) \
 	{ \
@@ -37,7 +108,18 @@
 			return makeLex(lex1); \
 	}
 // Конструктор
-Lexer::Lexer(const char* fileName)
+Lexer::Lexer(std::string fileName, std::string outfileName)
+	: input(fileName)
+	, output(outfileName, std::ios::out | std::ios::trunc)
+	, line(1)
+	, col(0)
+	, ch(-1)
+{
+	// Проверка входного файла
+	if (!input)
+		throw std::exception("Illegal filename");
+}
+Lexer::Lexer(std::string fileName)
 	: input(fileName)
 	, line(1)
 	, col(0)
@@ -85,8 +167,6 @@ Lexeme Lexer::next()
 			getChar();
 			PARSELEX('=', LEX_ADD_ASSIGNMENT)
 			PARSELEX('+', LEX_INCREMENT)
-			if (ch >= '0' && ch <= '9')
-				return parseNumber();
 			return makeLex(LEX_ADD);
 		}
 		PARSELEX(',', LEX_COMMA)
@@ -96,8 +176,6 @@ Lexeme Lexer::next()
 			PARSELEX('=', LEX_SUB_ASSIGNMENT)
 			PARSELEX('-', LEX_DECREMENT)
 			PARSELEX('>', LEX_ARROW)
-			if (ch >= '0' && ch <= '9')
-				return parseNumber();
 			return makeLex(LEX_SUB);
 		}
 		PARSELEX('.', LEX_DOT)
@@ -387,6 +465,9 @@ Lexeme Lexer::parseError()
 Lexeme Lexer::makeLex(int code)
 {
 	Lexeme l(code, text, saveLine, saveCol);
+
+	output << l.line << ":" << l.col << "\t" << lexName[l.code] << " \"" << l.text << "\"" << std::endl;
+
 	saveLine = line;
 	saveCol = col;
 	text.clear();

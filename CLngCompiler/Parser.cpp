@@ -1,6 +1,7 @@
 #include "stdafx.h"
 #include "Parser.h"
 #include "Exceptions.h"
+#include "Calculator.h"
 
 // Конструктор
 Parser::Parser(Lexer& lexer)
@@ -16,7 +17,7 @@ Parser::~Parser(void)
 }
 
 // Выполнить анализ
-Node* Parser::parse()
+Node* Parser::parse(bool isExpression)
 {
 	buffer.clear();
 	backStack.clear();
@@ -26,80 +27,76 @@ Node* Parser::parse()
 		next();
 
 	ProgramNode* prog = new ProgramNode();
-	tables.push_back(&prog->global);
-
+	tables.push_back(&prog->globals);
+	// разбираем единицы транслции
 	while (lex != LEX_EOF)
-		// Получаем единицу трансляции
-		parseUnit(prog);
-
-	return prog;
-}
-
-// Разобрать выражение
-Node* Parser::parseExpression()
-{
-	ExpressionNode* result = NULL;
-	if (lex == -1)
-		next();
-
-	while (true)
 	{
-		// разбираем выражение
-		Node* n = parseAssignmentExpression();
-		// Если это не выражение, то выход
-		if (result == NULL && n == NULL)
-			return NULL;
-		// Создаем выражение и добавляем узел
-		if (result == NULL)
-			result = new ExpressionNode(n);
-		check(n == NULL, "expected assignment expression", lex);
-		result->addAssignment(n);
-		// Если запятая, то получить следующую лексему
-		// и разобрать следующее выражение
-		if (lex == LEX_COMMA)
-			next();
-		else
-			// иначе разбор окончен
-			break;
-	}
-	return result;
-}
-
-// Разобрать единицу трансляции
-void Parser::parseUnit(ProgramNode* prog)
-{
-	// Разбираем тип
-	TypeSymbol* type = parseType();
-	// Разбираем декларатор
-	Node* left = parseDeclarator(type);
-	// Если переменная
-	if (dynamic_cast<VariableSymbol*>(left->symbol) != NULL)
-	{		
-		while (true)
+		// разбираем декларацию
+		if (!parseDeclaration(prog))
 		{
-			if (lex == LEX_ASSIGNMENT)
+			// Не удалось, может это выражение
+			if (isExpression)
 			{
-				Lexeme op = lex;
-				next();
-				Node* right = parseAssignmentExpression();
-				prog->addNode(new BinaryOpNode(op, BinaryOpNode::makeType(op, left, right), left, right));
-			}
-
-			if (lex == LEX_COMMA)
-			{
-				next();
-				left = parseDeclarator(type);
+				// разбираем выражение
+				Node* node = parseExpression();
+				if (node)
+				{
+					prog->addNode(node);
+					check(lex != LEX_SEMICOLON, "expected \';\' after expression", lex);
+					next();
+				}
+				else
+					// если не удалось, то завершаем разбор
+					break;
 			}
 			else
+				// если не удалось, то завершаем разбор
 				break;
 		}
 	}
 
-	if (lex == LEX_SEMICOLON)
+	// Если не удалось разобрать программу полностью
+	check(lex != LEX_EOF, "invalid parsing", lex);
+
+	tables.pop_back();
+	return prog;
+}
+
+// Разобрать декларацию
+bool Parser::parseDeclaration(NodesArrayNode* parent)
+{
+	// Разбираем тип
+	TypeSymbol* type = parseType();
+	// Разбираем декларатор
+	Node* node = parseDeclarator(type);
+	if (node == NULL)
+		return false;
+	if (!node->isEmpty())
 	{
-		next();
-		return ;
+		if (dynamic_cast<BinaryOpNode*>(node) || dynamic_cast<FunctionNode*>(node))
+			parent->addNode(node);
+		while (lex == LEX_COMMA)
+		{			
+			check(!node->symbol->isType() && dynamic_cast<VariableSymbol*>(node->symbol) == NULL, "before \',\' expected variable", lex);
+			next();
+			node = parseDeclarator(type);
+			check(!node->symbol->isType() && dynamic_cast<VariableSymbol*>(node->symbol) == NULL, "after \',\' expected variable", lex);
+			if (dynamic_cast<BinaryOpNode*>(node))
+				parent->addNode(node);
+		}
+		if (dynamic_cast<FunctionNode*>(node) == NULL)
+		{
+			check(lex != LEX_SEMICOLON, "expected \';\'", lex);
+			next();
+		}
 	}
+	else
+	{
+		delete node;
+		check(lex != LEX_SEMICOLON, "expected \';\'", lex);
+		next();
+	}
+	return true;
 }
 
 // разобрать тип
@@ -183,86 +180,144 @@ TypeSymbol* Parser::parseType()
 	return type;
 }
 
-// разобрать определение
-Node* Parser::parseDeclarator(TypeSymbol* type)
+// Разобрать структуру
+TypeSymbol* Parser::parseStruct()
 {
-	Node* node = NULL;
-	type = parsePointer(type);
+	next();
+	TypeSymbol* type = NULL;
+	Lexeme name;
 	if (lex == LEX_ID)
 	{
-		node = new IdentifierNode(lex, NULL);
+		name = lex;
 		next();
-	}
-	else if (lex == LEX_LPAREN)
-	{
-		next();
-		node = parseDeclarator(type);
-		check(lex != LEX_RPAREN, "expected \')\'", lex);
-		next();
-	}
-	else
-		check(true, "expected identifier", lex);
-
-	// это массив
-	if (lex == LEX_LBRACKET)
-	{
-		while (lex == LEX_LBRACKET)
-		{			
-			if (node->symbol == NULL)
-				checkSymbol(node->lex.text, false);
-			else
-				check(dynamic_cast<VariableSymbol*>(node->symbol) == NULL, "expected variable before \'[\'", lex);			
-			next();
-			// разбираем размер массива
-			Node* expr = parseConditionalExpression(NULL);
-			// вычисляем выражение			
-			int count = 10;
-			// Модифицируем тип
-			type = addArraySymbol(type, count);
-			if (node->symbol == NULL)
-				node->symbol = addVariableSymbol(node->lex.text, type);
-			else
-				((ItemSymbol*)node->symbol)->type = type;
-			// Проверяем закрывающую скобку
-			check(lex != LEX_RBRACKET, "expected \']\'", lex);
-			next();
+		// Это обращение к уже существующему типу
+		if (lex != LEX_LBRACE)
+		{
+			type = getTypeSymbol(name.text);
+			check(type == NULL, "undefined struct type", name);
 		}
 	}
-	else if (lex == LEX_LPAREN)
+
+	// Это определение структуры
+	if (lex == LEX_LBRACE)
 	{
-		// Это функция
-		check(node->symbol != NULL, "expected identifier before \'(\'", lex);
-		checkSymbol(node->lex.text);
-		FunctionSymbol* fsymbol = addFunctionSymbol(node->lex.text, type);
-		node->symbol = fsymbol;
 		next();
-		// разбираем параметры функции
-		SymbolsTable local;
-		tables.push_back(&local);
-		while (lex != LEX_RPAREN)
+		StructSymbol* stype = addStructSymbol(name.text);
+		type = stype;
+
+		tables.push_back(&stype->fields);
+
+		while (lex != LEX_RBRACE)
 		{
-			TypeSymbol * type = parseType();
-			Node* arg = parseDeclarator(type);
-			if (arg != NULL)
+			TypeSymbol* type = parseType();
+			while (true)
 			{
-				check(dynamic_cast<VariableSymbol*>(arg->symbol) == NULL, "function argument must be variable", lex);
-				fsymbol->addParam((VariableSymbol*)arg->symbol);
+				Node* node = parseDeclarator(type);
+				check(node->isEmpty(), "expected field name", lex);
+				check(dynamic_cast<VariableSymbol*>(node->symbol) == NULL, "expected only fields", lex);
 				if (lex == LEX_COMMA)
 					next();
 				else
 					break;
 			}
-			else
-				break;
+
+			check(lex != LEX_SEMICOLON, "expected \';\'", lex);
+			next();
 		}
 		tables.pop_back();
-		check(lex != LEX_RPAREN, "expected \')\'", lex);
+
+		check(lex != LEX_RBRACE, "expected \'}\'", lex);
 		next();
 	}
-	else if (node->symbol == NULL)
+
+	return type;
+}
+
+// разобрать определение
+Node* Parser::parseDeclarator(TypeSymbol* type, bool needParen)
+{
+	Node* node = NULL;
+	type = parsePointer(type);
+	// Это идентификатор 
+	if (lex == LEX_ID)
 	{
-		checkSymbol(node->lex.text);
+		Symbol* s = getSymbol(lex.text);
+		if (type == NULL && s != NULL)
+		{
+			// Возможно это обращение к переменной или функции
+			if (dynamic_cast<VariableSymbol*>(s) != NULL || dynamic_cast<FunctionSymbol*>(s) != NULL)
+				return NULL;
+		}
+		node = new IdentifierNode(lex, type);
+		next();
+	}
+	// Зачем-то круглые скобки
+	else if (lex == LEX_LPAREN)
+	{
+		next();
+		node = parseDeclarator(type, true);
+		if (type == NULL && node == NULL)
+		{
+			// Возможно это выражение
+			back();
+			return NULL;
+		}
+		check(lex != LEX_RPAREN, "expected \')\'", lex);
+		next();
+
+		if (!node->symbol->isType())
+			return node;
+	}	
+	else if (type != NULL)
+	{
+		if (lex == LEX_INT_VALUE || lex == LEX_FLOAT_VALUE || lex == LEX_CHAR_VALUE || lex == LEX_STRING_VALUE)
+			check(true, "expected identifier", lex);
+	}
+
+	if (node == NULL)
+	{		
+		if (type == NULL)
+			return NULL;
+		else if (needParen)
+			check(true, "expected identifier", lex);
+		else
+			return new EmptyNode(type);
+	}
+	
+	// Это объявление типа
+	if (node->isEmpty())
+		;
+	// это определение массива
+	else if (lex == LEX_LBRACKET)
+	{
+		checkSymbol(node->lex.text, false);
+		// Проверяем тип
+		check(!node->symbol->isType(), "expected variable before \'[\'", lex);
+		// разбираем массив
+		type = parseArray(type);
 		node->symbol = addVariableSymbol(node->lex.text, type);
+	}
+	// Это определение функции
+	else if (lex == LEX_LPAREN)
+	{		
+		return parseFunction(node);		
+	}
+	else if (type == NULL)
+	{
+		// Это ошибка
+		check(true, "expected \'(\'", lex);
+	}
+	// Это обычная переменная
+	else
+	{
+		node->symbol = addVariableSymbol(node->lex.text, type);
+		if (lex == LEX_ASSIGNMENT)
+		{
+			Lexeme l = lex;
+			next();
+			Node* val = parseAssignmentExpression();
+			return new BinaryOpNode(l, BinaryOpNode::makeType(l, node, val), node, val);
+		}
 	}
 
 	return node;
@@ -289,6 +344,113 @@ TypeSymbol* Parser::parsePointer(TypeSymbol* type)
 	}
 
 	return type;
+}
+
+// Разобрать массив
+TypeSymbol* Parser::parseArray(TypeSymbol* type)
+{
+	while (lex == LEX_LBRACKET)
+	{
+		next();
+		// разбираем размер массива
+		Node* expr = parseConditionalExpression(NULL);
+		check(expr == NULL, "expected constant expression", lex);
+		// вычисляем выражение			
+		Calculator calc(expr);
+		int count = calc.result.asInt;
+		// Модифицируем тип
+		type = addArraySymbol(type, count);
+		// Проверяем закрывающую скобку
+		check(lex != LEX_RBRACKET, "expected \']\'", lex);
+		next();
+	}
+	return type;
+}
+
+// Разобрать функцию
+Node* Parser::parseFunction(Node* node)
+{
+	// Это функция	
+	checkSymbol(node->lex.text);
+	FunctionSymbol* fsymbol;
+	// Если тип не задан, то по умолчанию тип int
+	if (node->symbol == NULL)
+		fsymbol = addFunctionSymbol(node->lex.text, getTypeSymbol("int"));
+	else
+		fsymbol = addFunctionSymbol(node->lex.text, node->getType());
+	node->symbol = fsymbol;
+	FunctionNode* fnode = new FunctionNode(fsymbol);
+	next();
+	// разбираем параметры функции
+	tables.push_back(&fnode->params);
+	while (lex != LEX_RPAREN)
+	{
+		TypeSymbol * type = parseType();
+		Node* arg = parseDeclarator(type);
+		check(arg == NULL || (!arg->isEmpty() && dynamic_cast<VariableSymbol*>(arg->symbol) == NULL), "function argument must be type or variable", lex);
+		fsymbol->params.addSymbol(arg->getType());
+		if (lex == LEX_COMMA)
+			next();
+		else
+			break;
+	}
+	tables.pop_back();
+	check(lex != LEX_RPAREN, "expected \')\'", lex);
+	next();
+	// Разбираем тело функции
+	if (lex == LEX_LBRACE)
+	{
+		tables.push_back(&fnode->params);
+		fnode->statement = parseStatement();
+		tables.pop_back();
+		delete node;
+		return fnode;
+	}
+	
+	delete fnode;
+	return node;
+}
+
+// Разобрать выражение
+Node* Parser::parseExpression()
+{
+	ExpressionNode* result = NULL;
+	if (lex == -1)
+		next();
+
+	while (true)
+	{
+		// разбираем выражение
+		Node* n = parseAssignmentExpression();
+		// Если это не выражение, то выход
+		if (result == NULL && n == NULL)
+			return NULL;
+		// Создаем выражение и добавляем узел
+		if (result == NULL)
+			result = new ExpressionNode(n);
+		else
+		{
+			check(n == NULL, "expected assignment expression", lex);
+			result->addNode(n);
+		}
+		// Если запятая, то получить следующую лексему
+		// и разобрать следующее выражение
+		if (lex == LEX_COMMA)
+			next();
+		else
+			// иначе разбор окончен
+			break;
+	}
+
+	if (result != NULL && result->nodes.size() == 1)
+	{
+		Node* node = result->nodes[0];
+		result->nodes.clear();
+		delete result;
+		return node;
+	}
+
+	return result;
 }
 
 // Разобраиь присваивание
@@ -360,9 +522,9 @@ int operations[PRIORITY_COUNT][OPERATION_COUNT] = {
 	{LEX_AND, -1, -1, -1},
 	{LEX_EQUAL, LEX_NOT_EQUAL, -1, -1},
 	{LEX_LESS, LEX_LESS_EQUAL, LEX_GREAT_EQUAL, LEX_GREAT},
-	{LEX_LSHIFT, LEX_RSHIFT},
-	{LEX_ADD, LEX_SUB},
-	{LEX_MUL, LEX_DIV, LEX_PERSENT}
+	{LEX_LSHIFT, LEX_RSHIFT, -1, -1},
+	{LEX_ADD, LEX_SUB, -1, -1},
+	{LEX_MUL, LEX_DIV, LEX_PERSENT, -1}
 };
 
 // Проверить операцию
@@ -402,31 +564,6 @@ Node* Parser::parseOperation(Node* left, int priority)
 // Разобрать приведение типа
 Node* Parser::parseCastExpression()
 {
-	/*
-	if (lex == LEX_LPAREN)
-	{
-		Lexeme op = lex;
-		next();
-		// Если тип. то разбираем приведение типа
-		if (isTypeName())
-		{
-			// Запоминаем тип
-			Lexeme type = lex;
-			next();
-			if (lex != LEX_RPAREN)
-				onSyntaxError("expected \')\'");
-			next();
-			// разбираем приводимое выражение
-			Node* right = parseCastExpression();
-			if (right == NULL)
-				onSyntaxError("expected operand");
-			return new UnaryOpNode(UnaryOpNode::makeType(op, right), op, right, false);
-		}
-		// Это не тип, делаем возврат
-		back();
-	}
-	*/
-	
 	// разбираем унарное выражение
 	return parseUnaryExpression();
 }
@@ -488,17 +625,21 @@ Node* Parser::parsePostfixExpression()
 			// Если вызов
 			else if (lex == LEX_LPAREN)
 			{			
-				check(dynamic_cast<FunctionSymbol*>(left->symbol) == NULL, "left operand of \'(\' must be function", lex);
+				FunctionSymbol* fsymbol = dynamic_cast<FunctionSymbol*>(left->symbol);
+				check(fsymbol == NULL, "operand of \'(\' must be function", lex);
 				next();
-				FuncCallNode* fnode = new FuncCallNode(left->symbol, left);
-				left = fnode;
+				FuncCallNode* fnode = new FuncCallNode(left->symbol, left);				
 				// Разбор аргументов
+				int n = 0;
 				while (true)
 				{
-					Node* arg = parseAssignmentExpression();
+					Node* arg = parseAssignmentExpression();					
 					if (arg)
 					{
-						fnode->addArgument(arg);
+						check(n >= fsymbol->params.count(), "function has no more params", lex);
+						fnode->addNode(arg);
+						check(!arg->getType()->canConvertTo((TypeSymbol*)fsymbol->params[n]), "function args type mismatch", lex);
+						n++;
 						if (lex != LEX_COMMA)
 							break;
 						next();
@@ -506,9 +647,11 @@ Node* Parser::parsePostfixExpression()
 					else
 						break;
 				}
+				check(n < fsymbol->params.count(), "function has more params", lex);
 				// Закрывающая скобка
 				check(lex != LEX_RPAREN, "expected \')\'", lex);
 				next();
+				left = fnode;
 			}
 			// Если обращение к элементу структуры
 			else if (lex == LEX_DOT || lex == LEX_ARROW)
@@ -526,7 +669,7 @@ Node* Parser::parsePostfixExpression()
 				// Проверяем название поля структуры
 				check(lex != LEX_ID, "expected identifier", lex);
 				StructSymbol* stype = (StructSymbol*)type;
-				VariableSymbol* field = stype->findFieldByName(lex.text);
+				VariableSymbol* field = (VariableSymbol*)stype->fields.findByName(lex.text);
 				check(field == NULL, "unknown field", lex);
 				Node* right = new IdentifierNode(lex, field);
 				left = new BinaryOpNode(op, field->type, left, right);
@@ -598,20 +741,151 @@ Node* Parser::parsePrimaryExpression()
 	return result;
 }
 
-// Разобрать структуру
-TypeSymbol* Parser::parseStruct()
+// разобрать блок
+Node* Parser::parseStatement()
 {
-	StructSymbol* symbol = NULL;
-	next();	
-	if (lex == LEX_ID)
+	while (true)
 	{
-		symbol = new StructSymbol(lex.text);
-		next();
+		if (lex == LEX_LBRACE)
+			return parseCompoundStatement();
+		else if (lex == LEX_IF)
+			return parseIfStatement();
+		else if (lex == LEX_WHILE)
+			return parseWhileStatement();
+		else if (lex == LEX_DO)
+			return parseDoStatement();
+		else if (lex == LEX_FOR)
+			return parseForStatement();
+		else if (lex == LEX_BREAK)
+		{
+			next();
+			check(lex != LEX_SEMICOLON, "expected \';\'", lex);
+			next();
+			return new BreakNode();
+		}
+		else if (lex == LEX_RETURN)
+		{
+			next();
+			Node* expr = parseExpression();
+			check(lex != LEX_SEMICOLON, "expected \';\'", lex);
+			next();
+			return new ReturnNode(expr);
+		}
+		else if (lex == ';')
+		{
+			next();
+			continue;
+		}
+		else
+		{
+			Node* node = parseExpression();
+			if (node)
+			{
+				check(lex != LEX_SEMICOLON, "expected \';\'", lex);
+				next();
+			}
+			return node;
+		}
+		break;
+	}
+	return NULL;
+}
+
+// разобрать блок
+Node* Parser::parseCompoundStatement()
+{
+	next();
+	CompoundNode* node = new CompoundNode();
+	tables.push_back(&node->locals);
+	// разбираем определения
+	while (parseDeclaration(node))
+		;
+	// разбираем блоки
+	Node* n = parseStatement();
+	while (n)
+	{
+		node->addNode(n);
+		n = parseStatement();
+	}
+	tables.pop_back();
+	check(lex != LEX_RBRACE, "expected \'}\'", lex);
+	next();
+
+	if (node->nodes.empty())
+	{
+		delete node;
+		return NULL;
 	}
 	else
-		symbol = new StructSymbol("");
+		return node;
+}
 
-	return symbol;
+// разобрать блок
+Node* Parser::parseIfStatement()
+{
+	next();
+	check(lex != LEX_LPAREN, "expected \'(\'", lex);
+	next();
+	Node* expr = parseExpression();
+	check(lex != LEX_RPAREN, "expected \')\'", lex);
+	next();
+	Node* st1 = parseStatement();
+	Node* st2 = NULL;
+	if (lex == LEX_ELSE)
+	{
+		next();
+		st2 = parseStatement();
+	}
+	return new IfNode(expr, st1, st2);
+}
+
+// разобрать блок
+Node* Parser::parseWhileStatement()
+{
+	next();
+	check(lex != LEX_LPAREN, "expected \'(\'", lex);
+	next();
+	Node* expr = parseExpression();
+	check(lex != LEX_RPAREN, "expected \')\'", lex);
+	next();
+	Node* st = parseStatement();
+	return new WhileNode(expr, st);
+}
+
+// разобрать блок
+Node* Parser::parseDoStatement()
+{
+	next();
+	Node* st = parseStatement();
+	check(lex != LEX_WHILE, "expected \'while\'", lex);
+	next();
+	check(lex != LEX_LPAREN, "expected \'(\'", lex);
+	next();
+	Node* expr = parseExpression();
+	check(lex != LEX_RPAREN, "expected \')\'", lex);
+	next();
+	check(lex != LEX_SEMICOLON, "expected \';\'", lex);
+	next();
+	return new DoNode(expr, st);
+}
+
+// разобрать блок
+Node* Parser::parseForStatement()
+{
+	next();
+	check(lex != LEX_LPAREN, "expected \'(\'", lex);
+	next();
+	Node* expr1 = parseExpression();
+	check(lex != LEX_SEMICOLON, "expected \';\'", lex);
+	next();
+	Node* expr2 = parseExpression();
+	check(lex != LEX_SEMICOLON, "expected \';\'", lex);
+	next();
+	Node* expr3 = parseExpression();
+	check(lex != LEX_RPAREN, "expected \')\'", lex);
+	next();
+	Node* st = parseStatement();
+	return new ForNode(expr1, expr2, expr3, st);
 }
 
 // Получить следующую лексему
@@ -747,6 +1021,16 @@ AliasSymbol* Parser::addAliasSymbol(TypeSymbol* baseType, std::string name)
 ArraySymbol* Parser::addArraySymbol(TypeSymbol* baseType, int count)
 {
 	ArraySymbol* type = new ArraySymbol(baseType, count);
+	tables.front()->addSymbol(type);
+	return type;
+}
+
+// Добавить структуру
+StructSymbol* Parser::addStructSymbol(std::string name)
+{
+	if (!name.empty())
+		checkSymbol(name);
+	StructSymbol* type = new StructSymbol(name);
 	tables.front()->addSymbol(type);
 	return type;
 }

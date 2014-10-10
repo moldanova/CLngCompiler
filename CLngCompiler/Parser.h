@@ -14,18 +14,24 @@ public:
 	// Деструктор
 	~Parser();
 	// Выполнить анализ
-	Node* parse();
-	// Разобрать выражение
-	Node* parseExpression();
+	Node* parse(bool isExpression = false);	
 private:	
-	// Разобрать единицу трансляции
-	void parseUnit(ProgramNode* prog);
+	// Разобрать декларацию
+	bool parseDeclaration(NodesArrayNode* parent);
 	// разобрать тип
 	TypeSymbol* parseType();
+	// Разобрать структуру
+	TypeSymbol* parseStruct();
 	// разобрать определение
-	Node* parseDeclarator(TypeSymbol* type);
+	Node* parseDeclarator(TypeSymbol* type, bool needParen = false);
 	// Разобрать указатель
 	TypeSymbol* parsePointer(TypeSymbol* type);
+	// Разобрать массив
+	TypeSymbol* parseArray(TypeSymbol* type);
+	// Разобрать функцию
+	Node* parseFunction(Node* node);
+	// Разобрать выражение
+	Node* parseExpression();
 	// Разобраиь присваивание
 	Node* parseAssignmentExpression();
 	// Разобрать условное выражение
@@ -39,13 +45,19 @@ private:
 	// Разобрать постфиксные операции
 	Node* parsePostfixExpression();
 	// Разобрать операнд
-	Node* parsePrimaryExpression();	
-	
-	
-	// Разобрать структуру
-	TypeSymbol* parseStruct();	
-	
-
+	Node* parsePrimaryExpression();		
+	// разобрать блок
+	Node* parseStatement();
+	// разобрать блок
+	Node* parseCompoundStatement();
+	// разобрать блок
+	Node* parseIfStatement();
+	// разобрать блок
+	Node* parseWhileStatement();
+	// разобрать блок
+	Node* parseDoStatement();
+	// разобрать блок
+	Node* parseForStatement();
 	// Получить следующую лексему
 	void next();
 	// Вернуть лексему назад
@@ -71,7 +83,9 @@ private:
 	// Добавить псевдоним
 	AliasSymbol* addAliasSymbol(TypeSymbol* baseType, std::string name);
 	// Добавить массив
-	ArraySymbol* addArraySymbol(TypeSymbol* baseType, int count);
+	ArraySymbol* addArraySymbol(TypeSymbol* baseType, int count);	
+	// Добавить структуру
+	StructSymbol* addStructSymbol(std::string name);
 	// Получить перемнную или функцию
 	Symbol* getSymbol(std::string name);
 	// Добавить переменную

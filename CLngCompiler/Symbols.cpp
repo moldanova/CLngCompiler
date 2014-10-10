@@ -159,9 +159,9 @@ bool TypeSymbol::canConvertTo(TypeSymbol* to)
 	if (isPointer() && to->name == "void *")
 		return true;
 	// Правила арифметики с указателями
-	if (isPointer() && to->isInt())
+	if (isPointer() && (to->isInt() || to->isChar()))
 		return true;
-	if (isInt() && to->isPointer())
+	if ((isInt() || isChar()) && to->isPointer())
 		return true;
 	return false;
 }
@@ -194,26 +194,26 @@ bool AliasSymbol::canConvertTo(TypeSymbol* to)
 
 //-------------------------------------------------------------------------
 
+int StructSymbol::nameCount = 0;
+
 // Конструктор
 StructSymbol::StructSymbol(std::string name)
 	: TypeSymbol("", 0)
 {
 	if (name.empty())
 	{
-		char s[200];
-		sprintf(s, "struct s_%x", this);
-		this->name = s;
+		nameCount++;
+		this->name = "struct";
+		this->name += std::to_string(nameCount);
 	}
 	else
-		this->name = "struct " + name;
+		this->name = name;
 }
 
 // Деструктор
 StructSymbol::~StructSymbol()
 {
-	for (int i = 0; i < fields.size(); i++)
-		delete fields[i];
-	fields.clear();
+
 }
 
 // Посетить символ
@@ -228,28 +228,17 @@ bool StructSymbol::canConvertTo(TypeSymbol* to)
 	return *this == *to;
 }
 
-// Добавить поле
-void StructSymbol::addField(VariableSymbol* field)
-{
-	fields.push_back(field);
-	length += field->type->length;
-}
-
-// Поиск поля по имени
-VariableSymbol* StructSymbol::findFieldByName(std::string name)
-{
-	for (int i = 0; i < fields.size(); i++)
-		if (fields[i]->name == name)
-			return fields[i];
-	return NULL;
-}
-
 //-------------------------------------------------------------------------
+
+int ArraySymbol::nameCount = 0;
 
 // Конструктор
 ArraySymbol::ArraySymbol(TypeSymbol* baseType, int count)
 	: TypeSymbol(baseType, TypeSymbol::MODE_NONE)
 {
+	nameCount++;
+	this->name = "array";
+	this->name += std::to_string(nameCount);
 	this->length = baseType->length * count;
 	this->count = count;
 }
@@ -341,9 +330,7 @@ FunctionSymbol::FunctionSymbol(std::string name, TypeSymbol* type)
 // Деструктор
 FunctionSymbol::~FunctionSymbol()
 {
-	for (int i = 0; i < params.size(); i++)
-		delete params[i];
-	params.clear();
+
 }
 
 // Посетить символ
@@ -352,9 +339,4 @@ void FunctionSymbol::visit(ISymbolVisitor* visitor)
 	visitor->OnSymbol(this);
 }
 
-// Добавить параметр
-void FunctionSymbol::addParam(VariableSymbol* param)
-{
-	params.push_back(param);
-}
 

@@ -79,6 +79,7 @@
     <Text Include="ReadMe.txt" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="Calculator.cpp" />
     <ClCompile Include="Exceptions.cpp" />
     <ClCompile Include="FlagHandler.cpp" />
     <ClCompile Include="Lexeme.cpp" />
@@ -89,8 +90,10 @@
     <ClCompile Include="Printer.cpp" />
     <ClCompile Include="stdafx.cpp" />
     <ClCompile Include="Symbols.cpp" />
+    <ClCompile Include="Value.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Calculator.h" />
     <ClInclude Include="Exceptions.h" />
     <ClInclude Include="FlagHandler.h" />
     <ClInclude Include="Lexeme.h" />
@@ -101,6 +104,7 @@
     <ClInclude Include="stdafx.h" />
     <ClInclude Include="Symbols.h" />
     <ClInclude Include="targetver.h" />
+    <ClInclude Include="Value.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

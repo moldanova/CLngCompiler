@@ -44,6 +44,10 @@ public:
 	Symbol* findByName(std::string name);
 	// Поиск и добавление
 	Symbol* findOrAdd(Symbol* symbol);
+	// Получить символ по индексу
+	Symbol* operator [] (int n) { return symbols[n]; }
+	// Получить количество
+	int count() { return symbols.size(); }
 	// Список типов
 	std::vector<Symbol*> symbols;
 };
@@ -84,7 +88,7 @@ public:
 	// Признак псевдонима
 	virtual bool isAlias() { return false; }
 	// Признак скалярного типа
-	bool isScalar() { return baseType == NULL ? true : isConst() && baseType->isScalar(); }
+	bool isScalar() { return isChar() || isInt() || isFloat(); }
 	// Признак типа char
 	bool isChar() { return name == "char" || name == "const char"; }
 	// Признак типа int
@@ -130,6 +134,7 @@ class VariableSymbol;
 // Класс типа структуры
 class StructSymbol : public TypeSymbol
 {
+	static int nameCount;
 public:
 	// Конструктор
 	StructSymbol(std::string name);
@@ -141,12 +146,8 @@ public:
 	virtual bool canConvertTo(TypeSymbol* to);
 	// Признак структуры
 	virtual bool isStruct() { return true; }	
-	// Добавить поле
-	void addField(VariableSymbol* field);
-	// Поиск поля по имени
-	VariableSymbol* findFieldByName(std::string name);
 	// Поля структуры
-	std::vector<VariableSymbol*> fields;
+	SymbolsTable fields;
 };
 
 //-------------------------------------------------------------------------
@@ -154,9 +155,8 @@ public:
 // Класс массива
 class ArraySymbol : public TypeSymbol
 {
+	static int nameCount;
 public:
-	// Создать имя
-	static std::string makeName(TypeSymbol* baseType, int mode);
 	// Конструктор
 	ArraySymbol(TypeSymbol* baseType, int count);
 	// Деструктор
@@ -231,10 +231,8 @@ public:
 	virtual ~FunctionSymbol();
 	// Посетить символ
 	virtual void visit(ISymbolVisitor* visitor);
-	// Добавить параметр
-	void addParam(VariableSymbol* param);
 	// Параметры функции
-	std::vector<VariableSymbol*> params;
+	SymbolsTable params;
 };
 
 //-------------------------------------------------------------------------
