@@ -72,6 +72,17 @@ Symbol* SymbolsTable::findOrAdd(Symbol* symbol)
 	return symbol;
 }
 
+// Получить длину
+int SymbolsTable::getLength()
+{
+	int length = 0;
+	for (int i = 0; i < symbols.size(); i++)
+	{
+		if (symbols[i]->isType())
+			length += ((TypeSymbol*)(symbols[i]))->getLength();
+	}
+	return length;
+}
 
 //-------------------------------------------------------------------------
 
@@ -89,10 +100,9 @@ std::string TypeSymbol::makeName(TypeSymbol* baseType, int mode)
 }
 
 // Конструктор
-TypeSymbol::TypeSymbol(std::string name, int length)
+TypeSymbol::TypeSymbol(std::string name)
 	: Symbol(name)
 {
-	this->length = length;
 	baseType = NULL;
 	mode = MODE_NONE;
 }
@@ -101,7 +111,6 @@ TypeSymbol::TypeSymbol(std::string name, int length)
 TypeSymbol::TypeSymbol(TypeSymbol* baseType, int mode)
 	: Symbol(makeName(baseType, mode))
 {
-	this->length = mode == MODE_CONST ? baseType->length : 4;
 	this->baseType = baseType;
 	this->mode = mode;
 }
@@ -133,16 +142,16 @@ bool TypeSymbol::canConvertTo(TypeSymbol* to)
 	// Если типы равны
 	if (*this == *to)
 		return true;
-	// один из типов пустой
-	if (isVoid() || to->isVoid())
-		return false;
 	// Если результирующий тип константный
 	if (to->isConst())
 		return canConvertTo(to->baseType);
-	// Если оба типа указатели
+	// Если оба типа указатели на указатели
 	if (isPointer() && baseType->isPointer() && to->isPointer() && to->baseType->isPointer())
 		return baseType->canConvertTo(to->baseType);
-	// Правила приведения числовых значений
+	// Совместимость указателя и массива
+	if (isPointer() && to->isArray() && *baseType == *(to->baseType))	
+		return true;
+	// Правила совместимости числовых значений
 	if (name == "const char" && to->name == "char")
 		return true;	
 	if ((name == "char" || name == "const char") && to->name == "int")
@@ -158,19 +167,31 @@ bool TypeSymbol::canConvertTo(TypeSymbol* to)
 	// Правила приведения указателей
 	if (isPointer() && to->name == "void *")
 		return true;
-	// Правила арифметики с указателями
-	if (isPointer() && (to->isInt() || to->isChar()))
-		return true;
-	if ((isInt() || isChar()) && to->isPointer())
-		return true;
+
 	return false;
+}
+
+// Получить длину типа
+int TypeSymbol::getLength()
+{
+	if (isChar())
+		return 1;
+	if (isInt())
+		return 4;
+	if (isFloat())
+		return 4;
+	if (isPointer())
+		return 4;
+	if (isConst())
+		baseType->getLength();
+	return 0;
 }
 
 //-------------------------------------------------------------------------
 
 // Конструктор
 AliasSymbol::AliasSymbol(TypeSymbol* baseType, std::string name)
-	: TypeSymbol(name, baseType->length)
+	: TypeSymbol(name)
 {
 	this->baseType = baseType;
 }
@@ -192,13 +213,19 @@ bool AliasSymbol::canConvertTo(TypeSymbol* to)
 	return baseType->canConvertTo(to);
 }
 
+// Получить длину типа
+int AliasSymbol::getLength()
+{
+	return baseType->getLength();
+}
+
 //-------------------------------------------------------------------------
 
 int StructSymbol::nameCount = 0;
 
 // Конструктор
 StructSymbol::StructSymbol(std::string name)
-	: TypeSymbol("", 0)
+	: TypeSymbol("")
 {
 	if (name.empty())
 	{
@@ -228,6 +255,12 @@ bool StructSymbol::canConvertTo(TypeSymbol* to)
 	return *this == *to;
 }
 
+// Получить длину типа
+int StructSymbol::getLength()
+{
+	return fields.getLength();
+}
+
 //-------------------------------------------------------------------------
 
 int ArraySymbol::nameCount = 0;
@@ -239,7 +272,6 @@ ArraySymbol::ArraySymbol(TypeSymbol* baseType, int count)
 	nameCount++;
 	this->name = "array";
 	this->name += std::to_string(nameCount);
-	this->length = baseType->length * count;
 	this->count = count;
 }
 
@@ -257,7 +289,17 @@ void ArraySymbol::visit(ISymbolVisitor* visitor)
 // Проверка возможности конвертирования
 bool ArraySymbol::canConvertTo(TypeSymbol* to)
 {
-	return *this == *to;
+	if (*this == *to)
+		return true;
+	if (to->isPointer() && *baseType == *(to->baseType))
+		return true;	
+	return false;
+}
+
+// Получить длину типа
+int ArraySymbol::getLength()
+{
+	return count * baseType->getLength();
 }
 
 //-------------------------------------------------------------------------

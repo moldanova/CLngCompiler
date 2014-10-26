@@ -79,7 +79,9 @@
     <Text Include="ReadMe.txt" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="Asm.cpp" />
     <ClCompile Include="Calculator.cpp" />
+    <ClCompile Include="CodeGenerator.cpp" />
     <ClCompile Include="Exceptions.cpp" />
     <ClCompile Include="FlagHandler.cpp" />
     <ClCompile Include="Lexeme.cpp" />
@@ -93,7 +95,9 @@
     <ClCompile Include="Value.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Asm.h" />
     <ClInclude Include="Calculator.h" />
+    <ClInclude Include="CodeGenerator.h" />
     <ClInclude Include="Exceptions.h" />
     <ClInclude Include="FlagHandler.h" />
     <ClInclude Include="Lexeme.h" />

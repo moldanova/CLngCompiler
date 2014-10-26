@@ -77,7 +77,7 @@ private:
 	// найти тип
 	TypeSymbol* getTypeSymbol(std::string name);
 	// Добавить тип
-	TypeSymbol* addTypeSymbol(std::string name, int length);
+	TypeSymbol* addTypeSymbol(std::string name);
 	// Добавить тип
 	TypeSymbol* addTypeSymbol(TypeSymbol* baseType, int mode);
 	// Добавить псевдоним
@@ -93,10 +93,20 @@ private:
 	// Добавить функцию
 	FunctionSymbol* addFunctionSymbol(std::string name, TypeSymbol* type);
 
+	// Перечисление циклов
+	enum
+	{
+		LOOP_FOR,
+		LOOP_WHILE,
+		LOOP_DO
+	};
+
 	Lexer& lexer;	// Лексический анализатор
 	Lexeme lex;		// Анализируемая лексема
 	std::vector<Lexeme> buffer;		// буфер обработанных лексем
 	std::vector<Lexeme> backStack;		// стек вернутых лексем
 	std::vector<SymbolsTable*> tables;	// Стек таблиц символов
+	std::vector<int> loops;	// Стек циклов
+	std::vector<FunctionNode*> funcs;	// Стек функций
 };
 

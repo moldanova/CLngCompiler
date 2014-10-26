@@ -48,6 +48,8 @@ public:
 	Symbol* operator [] (int n) { return symbols[n]; }
 	// Получить количество
 	int count() { return symbols.size(); }
+	// Получить длину
+	int getLength();
 	// Список типов
 	std::vector<Symbol*> symbols;
 };
@@ -68,7 +70,7 @@ public:
 	// Создать имя
 	static std::string makeName(TypeSymbol* baseType, int mode);
 	// Конструктор
-	TypeSymbol(std::string name, int length);
+	TypeSymbol(std::string name);
 	// Конструктор
 	TypeSymbol(TypeSymbol* baseType, int mode);
 	// Деструктор
@@ -101,8 +103,8 @@ public:
 	bool operator == (const TypeSymbol& type);
 	// Проверка возможности конвертирования
 	virtual bool canConvertTo(TypeSymbol* to);
-	// Длина типа
-	int length;
+	// Получить длину типа
+	virtual int getLength();
 	// базовый тип
 	TypeSymbol * baseType;	
 	// Модификатор типа (может использоваться только один модификатор)
@@ -125,6 +127,8 @@ public:
 	virtual bool canConvertTo(TypeSymbol* to);
 	// Признак псевдонима
 	virtual bool isAlias() { return true; }
+	// Получить длину типа
+	virtual int getLength();
 };
 
 //-------------------------------------------------------------------------
@@ -145,7 +149,9 @@ public:
 	// Проверка возможности конвертирования
 	virtual bool canConvertTo(TypeSymbol* to);
 	// Признак структуры
-	virtual bool isStruct() { return true; }	
+	virtual bool isStruct() { return true; }
+	// Получить длину типа
+	virtual int getLength();
 	// Поля структуры
 	SymbolsTable fields;
 };
@@ -167,6 +173,8 @@ public:
 	virtual bool canConvertTo(TypeSymbol* to);
 	// Признак массива
 	virtual bool isArray() { return true; }
+	// Получить длину типа
+	virtual int getLength();
 	// Количество элементов в массиве
 	int count;
 };

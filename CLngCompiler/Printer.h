@@ -84,6 +84,6 @@ private:
 	// счетчик деревьев
 	int treeCount;
 	// Вывод короткого названия 
-	bool shortName;
+	bool isShort;
 };
 

@@ -118,25 +118,25 @@ TypeSymbol* Parser::parseType()
 	else if (lex == LEX_VOID)
 	{
 		next();
-		type = addTypeSymbol("void", 0);
+		type = addTypeSymbol("void");
 	}
 	// Ёто символьный тип
 	else if (lex == LEX_CHAR)
 	{
 		next();
-		type = addTypeSymbol("char", 1);
+		type = addTypeSymbol("char");
 	}
 	// Ёто целый тип
 	else if (lex == LEX_INT)
 	{
 		next();
-		type = addTypeSymbol("int", 4);
+		type = addTypeSymbol("int");
 	}
 	// Ёто вещественный тип
 	else if (lex == LEX_FLOAT)
 	{
 		next();
-		type = addTypeSymbol("float", 4);
+		type = addTypeSymbol("float");
 	}	
 	// –азбираем структуру
 	else if (lex == LEX_STRUCT)
@@ -400,9 +400,11 @@ Node* Parser::parseFunction(Node* node)
 	// –азбираем тело функции
 	if (lex == LEX_LBRACE)
 	{
+		funcs.push_back(fnode);
 		tables.push_back(&fnode->params);
 		fnode->statement = parseStatement();
 		tables.pop_back();
+		funcs.pop_back();
 		delete node;
 		return fnode;
 	}
@@ -704,22 +706,22 @@ Node* Parser::parsePrimaryExpression()
 		TypeSymbol* type = NULL;
 		if (lex == LEX_CHAR_VALUE)
 		{
-			type = addTypeSymbol("char", 1);
+			type = addTypeSymbol("char");
 			type = addTypeSymbol(type, TypeSymbol::MODE_CONST);
 		}
 		else if (lex == LEX_INT_VALUE)
 		{
-			type = addTypeSymbol("int", 4);
+			type = addTypeSymbol("int");
 			type = addTypeSymbol(type, TypeSymbol::MODE_CONST);
 		}
 		else if (lex == LEX_FLOAT_VALUE)
 		{
-			type = addTypeSymbol("float", 4);
+			type = addTypeSymbol("float");
 			type = addTypeSymbol(type, TypeSymbol::MODE_CONST);
 		}
 		else
 		{
-			type = addTypeSymbol("char", 1);
+			type = addTypeSymbol("char");
 			type = addTypeSymbol(type, TypeSymbol::MODE_CONST);
 			type = addTypeSymbol(type, TypeSymbol::MODE_POINTER);
 		}
@@ -758,15 +760,33 @@ Node* Parser::parseStatement()
 			return parseForStatement();
 		else if (lex == LEX_BREAK)
 		{
+			check(loops.empty(), "\'break\' must use in loop", lex);
 			next();
 			check(lex != LEX_SEMICOLON, "expected \';\'", lex);
 			next();
 			return new BreakNode();
 		}
+		else if (lex == LEX_CONTINUE)
+		{
+			check(loops.empty(), "\'continue\' must use in loop", lex);
+			next();
+			check(lex != LEX_SEMICOLON, "expected \';\'", lex);
+			next();
+			return new ContinueNode();
+		}
 		else if (lex == LEX_RETURN)
 		{
+			check(funcs.empty(), "\'return\' must use in function", lex);
 			next();
 			Node* expr = parseExpression();
+			TypeSymbol* type = funcs.back()->getType();
+			if (expr == NULL)
+				check(!type->isVoid(), "function has return value", lex);
+			else
+			{
+				check(type->isVoid(), "function has not return value", lex);
+				check(!expr->getType()->canConvertTo(type), "type mismatch", lex);
+			}			
 			check(lex != LEX_SEMICOLON, "expected \';\'", lex);
 			next();
 			return new ReturnNode(expr);
@@ -797,27 +817,25 @@ Node* Parser::parseCompoundStatement()
 	next();
 	CompoundNode* node = new CompoundNode();
 	tables.push_back(&node->locals);
-	// разбираем определени€
-	while (parseDeclaration(node))
-		;
-	// разбираем блоки
-	Node* n = parseStatement();
-	while (n)
+
+	// разбираем декларации и блоки вперемешку
+	while (true)
 	{
-		node->addNode(n);
-		n = parseStatement();
+		if (!parseDeclaration(node))
+		{
+			Node* n = parseStatement();
+			if (n)
+				node->addNode(n);
+			else
+				break;
+		}
 	}
+
 	tables.pop_back();
 	check(lex != LEX_RBRACE, "expected \'}\'", lex);
 	next();
 
-	if (node->nodes.empty())
-	{
-		delete node;
-		return NULL;
-	}
-	else
-		return node;
+	return node;
 }
 
 // разобрать блок
@@ -827,14 +845,17 @@ Node* Parser::parseIfStatement()
 	check(lex != LEX_LPAREN, "expected \'(\'", lex);
 	next();
 	Node* expr = parseExpression();
+	check(expr == NULL, "expected expression", lex);
 	check(lex != LEX_RPAREN, "expected \')\'", lex);
 	next();
 	Node* st1 = parseStatement();
+	check(st1==NULL, "expected statement", lex);
 	Node* st2 = NULL;
 	if (lex == LEX_ELSE)
 	{
 		next();
 		st2 = parseStatement();
+		check(st2 == NULL, "expected statement", lex);
 	}
 	return new IfNode(expr, st1, st2);
 }
@@ -846,9 +867,13 @@ Node* Parser::parseWhileStatement()
 	check(lex != LEX_LPAREN, "expected \'(\'", lex);
 	next();
 	Node* expr = parseExpression();
+	check(expr == NULL, "expected expression", lex);
 	check(lex != LEX_RPAREN, "expected \')\'", lex);
 	next();
+	loops.push_back(LOOP_WHILE);
 	Node* st = parseStatement();
+	check(st == NULL, "expected statement", lex);
+	loops.pop_back();
 	return new WhileNode(expr, st);
 }
 
@@ -856,7 +881,10 @@ Node* Parser::parseWhileStatement()
 Node* Parser::parseDoStatement()
 {
 	next();
+	loops.push_back(LOOP_DO);
 	Node* st = parseStatement();
+	check(st == NULL, "expected statement", lex);
+	loops.pop_back();
 	check(lex != LEX_WHILE, "expected \'while\'", lex);
 	next();
 	check(lex != LEX_LPAREN, "expected \'(\'", lex);
@@ -875,16 +903,33 @@ Node* Parser::parseForStatement()
 	next();
 	check(lex != LEX_LPAREN, "expected \'(\'", lex);
 	next();
-	Node* expr1 = parseExpression();
-	check(lex != LEX_SEMICOLON, "expected \';\'", lex);
-	next();
+
+	// ѕервое выражение может содержать декларацию переменной.
+	// это противоречит заданной грамматике, но очень удобно.
+	NodesArrayNode node;
+	Node* expr1 = NULL;
+	if (parseDeclaration(&node))
+	{
+		check(node.nodes.size() != 1, "invalid first expression", lex);
+		expr1 = node.nodes[0];
+		node.nodes.clear();
+	}
+	else
+	{
+		expr1 = parseExpression();
+		check(lex != LEX_SEMICOLON, "expected \';\'", lex);
+		next();
+	}
 	Node* expr2 = parseExpression();
 	check(lex != LEX_SEMICOLON, "expected \';\'", lex);
 	next();
 	Node* expr3 = parseExpression();
 	check(lex != LEX_RPAREN, "expected \')\'", lex);
 	next();
+	loops.push_back(LOOP_FOR);
 	Node* st = parseStatement();
+	check(st == NULL, "expected statement", lex);
+	loops.pop_back();
 	return new ForNode(expr1, expr2, expr3, st);
 }
 
@@ -985,12 +1030,12 @@ TypeSymbol* Parser::getTypeSymbol(std::string name)
 }
 
 // ƒобавить тип
-TypeSymbol* Parser::addTypeSymbol(std::string name, int length)
+TypeSymbol* Parser::addTypeSymbol(std::string name)
 {
 	TypeSymbol* type = getTypeSymbol(name);
 	if (!type)
 	{
-		type = new TypeSymbol(name, length);
+		type = new TypeSymbol(name);
 		tables.front()->addSymbol(type);
 	}
 	return type;
@@ -1021,7 +1066,7 @@ AliasSymbol* Parser::addAliasSymbol(TypeSymbol* baseType, std::string name)
 ArraySymbol* Parser::addArraySymbol(TypeSymbol* baseType, int count)
 {
 	ArraySymbol* type = new ArraySymbol(baseType, count);
-	tables.front()->addSymbol(type);
+	tables.back()->addSymbol(type);
 	return type;
 }
 
@@ -1031,7 +1076,7 @@ StructSymbol* Parser::addStructSymbol(std::string name)
 	if (!name.empty())
 		checkSymbol(name);
 	StructSymbol* type = new StructSymbol(name);
-	tables.front()->addSymbol(type);
+	tables.back()->addSymbol(type);
 	return type;
 }
 

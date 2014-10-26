@@ -5,6 +5,7 @@
 #include "Lexer.h"
 #include "Parser.h"
 #include "Printer.h"
+#include "CodeGenerator.h"
 
 int main(int argc, char* argv[])
 {
@@ -55,19 +56,30 @@ int main(int argc, char* argv[])
 					prn1 << ex.what();
 				}							
 			}
+			else if (strcmp(argv[1], "-generator") == 0)
+			{
+				Lexer lexer(fn);
+				Parser parser(lexer);
+				Printer prn1(fn + ".prs1");
+				CodeGenerator coder;
+				try
+				{
+					Node* node = parser.parse();
+					node->visit(&prn1);
+					AsmProg* prog = coder.generate((ProgramNode*)node);
+					prog->print(fn + ".asm");
+					delete prog;
+				}
+				catch (std::exception& ex)
+				{
+					prn1 << ex.what();
+				}	
+			}
 		}
 	}
 	catch (std::exception& ex)
 	{
 		std::cout << ex.what() << std::endl;
 	}
-	if (1)
-	{
-	    {
-	        int a = 1;
-	    }
-	    int b = 2;
-	}
 	return 0;
 }
-

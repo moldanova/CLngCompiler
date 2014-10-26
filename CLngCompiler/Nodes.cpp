@@ -85,10 +85,10 @@ void NodesArrayNode::addNode(Node* node)
 // Конструктор
 ProgramNode::ProgramNode()
 {
-	globals.addSymbol(new TypeSymbol("void", 0));
-	globals.addSymbol(new TypeSymbol("char", 1));
-	globals.addSymbol(new TypeSymbol("int", 4));
-	globals.addSymbol(new TypeSymbol("float", 4));
+	globals.addSymbol(new TypeSymbol("void"));
+	globals.addSymbol(new TypeSymbol("char"));
+	globals.addSymbol(new TypeSymbol("int"));
+	globals.addSymbol(new TypeSymbol("float"));
 }
 
 // Деструктор
@@ -211,16 +211,16 @@ TypeSymbol* BinaryOpNode::makeType(Lexeme lex, Node* left, Node* right)
 			throw SyntaxException("left operand must be pointer or scalar", lex);
 		if (!(rtype->isPointer() || ltype->isScalar()))
 			throw SyntaxException("right operand must be pointer or scalar", lex);
-		return new TypeSymbol("int", 4);
+		return new TypeSymbol("int");
 	}
 	if (lex == LEX_OR || lex == LEX_XOR || lex == LEX_AND || lex == LEX_LSHIFT || lex == LEX_RSHIFT 
 		|| lex == LEX_PERSENT)
 	{
-		if (!ltype->isInt())
+		if (!ltype->isInt() && !ltype->isChar())
 			throw SyntaxException("left operand must be int", lex);
-		if (!rtype->isInt())
+		if (!rtype->isInt() && !rtype->isChar())
 			throw SyntaxException("right operand must be int", lex);
-		return new TypeSymbol("int", 4);
+		return new TypeSymbol("int");
 	}
 	if (lex == LEX_EQUAL || lex == LEX_NOT_EQUAL || lex == LEX_LESS || lex == LEX_LESS_EQUAL 
 		|| lex == LEX_GREAT_EQUAL || lex == LEX_GREAT)
@@ -229,15 +229,13 @@ TypeSymbol* BinaryOpNode::makeType(Lexeme lex, Node* left, Node* right)
 		bool r2l = rtype->canConvertTo(ltype);
 		if (!l2r && !r2l)
 			throw SyntaxException("type mismatch", lex);
-		return new TypeSymbol("int", 4); 
+		return new TypeSymbol("int"); 
 	}
 	if (lex == LEX_ADD || lex == LEX_SUB || lex == LEX_MUL || lex == LEX_DIV)
 	{
-		if (ltype->isPointer() && rtype->isPointer())
-			throw SyntaxException("expression must have integral type", lex);
-		if (rtype->isPointer() && (ltype->isInt() || ltype->isChar()))
+		if ((rtype->isArray() || rtype->isPointer()) && (ltype->isInt() || ltype->isChar()))
 			return rtype;
-		if ((rtype->isInt() || rtype->isChar()) && ltype->isPointer())
+		if ((rtype->isInt() || rtype->isChar()) && (ltype->isPointer() || ltype->isArray()))
 			return ltype;
 		bool l2r = ltype->canConvertTo(rtype);
 		bool r2l = rtype->canConvertTo(ltype);
@@ -304,21 +302,30 @@ TypeSymbol* UnaryOpNode::makeType(Lexeme lex, Node* right, bool postfix)
 	}
 	if (lex == LEX_ADD || lex == LEX_SUB)
 	{
-		if (type->name == "char" || type->name == "int" || type->name == "float")
-			return type;
+		if (type->isScalar())
+		{
+			if (type->isConst())
+				return type->baseType;
+			else
+				return type;
+		}
 		throw SyntaxException("type mismatch", lex);
 	}
-	if (lex == LEX_INVERT || lex == LEX_NOT)
+	if (lex == LEX_NOT)
 	{
-		if (!right->symbol->isModificableLvalue())
-			throw SyntaxException("operand must be modificable lvalue", lex);
-		if (type->name == "char" || type->name == "int")
+		if (type->isScalar() || type->isPointer() || type->isArray())
+			return new TypeSymbol("int");
+		throw SyntaxException("type mismatch", lex);
+	}
+	if (lex == LEX_INVERT)
+	{
+		if (type->isChar() || type->isInt())
 			return type;
 		throw SyntaxException("type mismatch", lex);
 	}
 	if (lex == LEX_SIZEOF)
 	{
-		return new TypeSymbol("int", 4);
+		return new TypeSymbol("int");
 	}
 	
 	throw std::exception("Internal error in \"UnaryOpNode::makeType()\"");

@@ -55,6 +55,7 @@ enum
 	LEX_BREAK,				// break
 	LEX_CHAR,				// char
 	LEX_CONST,				// const
+	LEX_CONTINUE,			// continue
 	LEX_DO,					// do
 	LEX_ELSE,				// else
 	LEX_FLOAT,				// float

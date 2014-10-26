@@ -52,6 +52,7 @@ const char* lexName[] = {
 	"LEX_BREAK",
 	"LEX_CHAR",
 	"LEX_CONST",
+	"LEX_CONTINUE",
 	"LEX_DO",
 	"LEX_ELSE",
 	"LEX_FLOAT",
@@ -70,6 +71,25 @@ const char* lexName[] = {
 	"LEX_CHAR_VALUE",
 	"LEX_EOF",
 	"LEX_ERROR"
+};
+
+char* keywords[] = {
+	"break", 
+	"char", 
+	"const", 
+	"continue",
+	"do", 
+	"else", 
+	"float", 
+	"for", 
+	"if", 
+	"int", 
+	"return", 
+	"sizeof", 
+	"struct", 
+	"typedef", 
+	"void", 
+	"while", 
 };
 
 #define PARSELEX(c1, lex1) \
@@ -129,7 +149,6 @@ Lexer::Lexer(std::string fileName)
 	if (!input)
 		throw std::exception("Illegal filename");
 }
-
 // деструктор
 Lexer::~Lexer()
 {
@@ -442,8 +461,7 @@ Lexeme Lexer::parseId()
 {
 	getChar();
 	while (isSymbol(ch) || isDigit(ch))
-		getChar();
-	char* keywords[] = {"break", "char", "const", "do", "else", "float", "for", "if", "int", "return", "sizeof", "struct", "typedef", "void", "while", };
+		getChar();	
 	for (int i = 0; i < sizeof(keywords)/sizeof(keywords[0]); ++i)
 		if (text == keywords[i])
 		{

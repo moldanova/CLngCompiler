@@ -56,7 +56,7 @@ Value operator || (Value l, Value r)
 	r.checkType(l);
 
 	Value v;
-	v.type = new TypeSymbol("int", 4);
+	v.type = new TypeSymbol("int");
 
 	if (v.type->isChar())
 		v.asChar = l.asChar || r.asChar;
@@ -74,7 +74,7 @@ Value operator && (Value l, Value r)
 	r.checkType(l);
 
 	Value v;
-	v.type = new TypeSymbol("int", 4);
+	v.type = new TypeSymbol("int");
 
 	if (v.type->isChar())
 		v.asChar = l.asChar && r.asChar;
@@ -140,7 +140,7 @@ Value operator == (Value l, Value r)
 	r.checkType(l);
 
 	Value v;
-	v.type = new TypeSymbol("int", 4);
+	v.type = new TypeSymbol("int");
 
 	if (v.type->isChar())
 		v.asChar = l.asChar == r.asChar;
@@ -158,7 +158,7 @@ Value operator != (Value l, Value r)
 	r.checkType(l);
 
 	Value v;
-	v.type = new TypeSymbol("int", 4);
+	v.type = new TypeSymbol("int");
 
 	if (v.type->isChar())
 		v.asChar = l.asChar != r.asChar;
@@ -176,7 +176,7 @@ Value operator < (Value l, Value r)
 	r.checkType(l);
 
 	Value v;
-	v.type = new TypeSymbol("int", 4);
+	v.type = new TypeSymbol("int");
 
 	if (v.type->isChar())
 		v.asChar = l.asChar < r.asChar;
@@ -194,7 +194,7 @@ Value operator <= (Value l, Value r)
 	r.checkType(l);
 
 	Value v;
-	v.type = new TypeSymbol("int", 4);
+	v.type = new TypeSymbol("int");
 
 	if (v.type->isChar())
 		v.asChar = l.asChar <= r.asChar;
@@ -212,7 +212,7 @@ Value operator >= (Value l, Value r)
 	r.checkType(l);
 
 	Value v;
-	v.type = new TypeSymbol("int", 4);
+	v.type = new TypeSymbol("int");
 
 	if (v.type->isChar())
 		v.asChar = l.asChar >= r.asChar;
@@ -230,7 +230,7 @@ Value operator > (Value l, Value r)
 	r.checkType(l);
 
 	Value v;
-	v.type = new TypeSymbol("int", 4);
+	v.type = new TypeSymbol("int");
 
 	if (v.type->isChar())
 		v.asChar = l.asChar > r.asChar;
