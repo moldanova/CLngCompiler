@@ -78,8 +78,8 @@ int SymbolsTable::getLength()
 	int length = 0;
 	for (int i = 0; i < symbols.size(); i++)
 	{
-		if (symbols[i]->isType())
-			length += ((TypeSymbol*)(symbols[i]))->getLength();
+		if (!symbols[i]->isType())
+			length += ((ItemSymbol*)(symbols[i]))->type->getLength();
 	}
 	return length;
 }
@@ -183,7 +183,7 @@ int TypeSymbol::getLength()
 	if (isPointer())
 		return 4;
 	if (isConst())
-		baseType->getLength();
+		return baseType->getLength();
 	return 0;
 }
 

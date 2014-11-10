@@ -1,24 +1,6 @@
 #include "stdafx.h"
 #include "Printer.h"
-
-// Класс для автоматического управления флагом короткого вывода
-class Flag
-{
-public:
-	Flag(bool* p, bool v)
-	{
-		this->p = p;
-		this->v = *p;
-		*p = v;
-	}
-	~Flag()
-	{
-		*p = v;
-	}
-private:
-	bool* p;
-	bool v;
-};
+#include "Flag.h"
 
 #define INDENT 4
 

@@ -7,6 +7,51 @@ enum
 	varDD	// 4 байта
 };
 
+// Тип аргумента
+enum
+{
+	argVALUE,
+	argREG,
+	argMEMORY
+};
+
+// Регистры
+enum
+{
+	EAX,
+	EBX,
+	ECX,
+	EDX,
+	EBP,
+	ESP
+};
+
+// Команда
+enum
+{
+	cmdADD,
+	cmdCALL,
+	cmdCDQ,
+	cmdCMP,
+	cmdDIV,
+	cmdIDIV,
+	cmdIMUL,
+	cmdJE,
+	cmdJMP,
+	cmdJNE,
+	cmdLEA,
+	cmdMOV,
+	cmdMUL,
+	cmdNEG,
+	cmdNOT,
+	cmdPOP,
+	cmdPUSH,
+	cmdRET,
+	cmdSUB,
+
+	cmdLABEL
+};
+
 // Класс переменной
 class AsmVar
 {
@@ -25,44 +70,23 @@ public:
 	std::string value;
 };
 
-// Тип аргумента
-enum
-{
-	argEAX,
-	argEBX,
-	argECX,
-	argEDX,
-	argEBP,
-	argESP,
-
-	argVAL
-};
-
 // Класс аргумента
 class AsmArg
 {
 public:	
 	// Конструктор
-	AsmArg(int arg);
+	AsmArg(int arg, std::string value);
 	// Конструктор
-	AsmArg(int arg, std::string val);
+	AsmArg(int arg, int reg);
+	// Конструктор
+	AsmArg(int arg, int reg, int offset);
 	// Вывести в файл
 	void print(std::ofstream& out);
 
-	int arg;	// Тип операнда
-	std::string val;	// значение операнда
-};
-
-// Команда
-enum
-{
-	cmdCALL,
-	cmdMOV,
-	cmdPOP,
-	cmdPUSH,
-	cmdRET,
-
-	cmdLABEL
+	int arg;			// Тип операнда
+	std::string value;	// значение операнда
+	int reg;			// Регистр
+	int offset;			// Смещение
 };
 
 // Класс ассемблерной команды

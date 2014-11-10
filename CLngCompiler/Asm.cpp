@@ -1,6 +1,38 @@
 #include "stdafx.h"
 #include "Asm.h"
 
+
+
+const char* regName[] = { 
+	"eax", 
+	"ebx", 
+	"ecx", 
+	"edx", 
+	"ebp", 
+	"esp" 
+};
+const char* cmdName[] = { 
+	"add", 
+	"call", 
+	"cdq", 
+	"cmp", 
+	"div",
+	"idiv", 
+	"imul", 
+	"je",
+	"jmp",
+	"jne",
+	"lea", 
+	"mov", 
+	"mul",
+	"neg",
+	"not", 
+	"pop", 
+	"push", 
+	"ret", 
+	"sub" 
+};
+
 //---------------------------------------------------------------------------
 
 // Конструктор
@@ -41,29 +73,45 @@ void AsmVar::print(std::ofstream& out)
 //---------------------------------------------------------------------------
 
 // Конструктор
-AsmArg::AsmArg(int arg)
+AsmArg::AsmArg(int arg, std::string value)
 {
 	this->arg = arg;
+	this->value = value;
+	this->reg = 0;
+	this->offset = 0;
 }
 
 // Конструктор
-AsmArg::AsmArg(int arg, std::string val)
+AsmArg::AsmArg(int arg, int reg)
 {
 	this->arg = arg;
-	this->val = val;
+	this->reg = reg;
+	this->offset = 0;
+}
+
+// Конструктор
+AsmArg::AsmArg(int arg, int reg, int offset)
+{
+	this->arg = arg;
+	this->reg = reg;
+	this->offset = offset;
 }
 
 // Вывести в файл
 void AsmArg::print(std::ofstream& out)
-{
-	if (arg == argVAL)
-	{
-		out << val;
-	}
+{	
+	if (arg == argVALUE)
+		out << value;
+	else if (arg == argREG)
+		out << regName[reg];
 	else
 	{
-		const char* regName[] = { "eax", "ebx", "ecx", "edx", "ebp", "esp" };
-		out << regName[arg];
+		if (!value.empty())
+			out << value;
+		else if (offset)
+			out << "[" << regName[reg] << "+" << std::to_string(offset) << "]";
+		else
+			out << "[" << regName[reg] << "]";
 	}
 }
 
@@ -120,7 +168,6 @@ void AsmCmd::print(std::ofstream& out)
 	}
 	else
 	{
-		const char* cmdName[] = { "call", "mov", "pop", "push", "ret" };
 		out << "\t" << cmdName[cmd];
 		if (arg1)
 		{
@@ -176,7 +223,9 @@ void AsmProg::print(std::string fileName)
 	 std::ofstream out(fileName, std::ios::out | std::ios::trunc);
 	 out << ".686" << std::endl;
 	 out << ".model flat, stdcall" << std::endl;
-	 out << ".data" << std::endl;
+	 out << "include c:\masm32\include\msvcrt.inc" << std::endl;
+	 out << "includelib c:\masm32\lib\msvcrt.lib" << std::endl;
+	 out << ".data" << std::endl; 
 
 	 for (int i = 0; i < vars.size(); i++)
 		 vars[i]->print(out);

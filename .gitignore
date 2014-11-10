@@ -1,5 +1,7 @@
 *.exe
 CLngCompiler.v11.suo
+CLngCompiler.v12.suo
+CLngCompiler.opensdf
 CLngCompiler.sdf
 *.opensdf
 *.sln
@@ -11,3 +13,5 @@ CLngCompiler.sdf
 *.vcxproj.filters
 *.sublime-project
 *.sublime-workspace
+/ipch
+.gitignore

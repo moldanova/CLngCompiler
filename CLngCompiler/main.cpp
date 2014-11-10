@@ -6,6 +6,7 @@
 #include "Parser.h"
 #include "Printer.h"
 #include "CodeGenerator.h"
+#include <windows.h>
 
 int main(int argc, char* argv[])
 {
@@ -14,10 +15,13 @@ int main(int argc, char* argv[])
 		if (argc == 3) 
 		{
 			std::string fn = argv[2];
+			std::string fnlxr = fn + ".lxr";
+			std::string fnprs1 = fn + ".prs1";
+			std::string fnasm = fn + ".test.asm";
 
 			if (strcmp(argv[1], "-lexer") == 0)
 			{
-				Lexer lexer(fn, fn + ".lxr");
+				Lexer lexer(fn, fnlxr);
 				while (true)
 				{
 					Lexeme lex = lexer.next();
@@ -28,9 +32,9 @@ int main(int argc, char* argv[])
 			}
 			else if (strcmp(argv[1], "-expression") == 0)
 			{
-				Lexer lexer(fn);
+				Lexer lexer(fn, fnlxr);
 				Parser parser(lexer);
-				Printer prn1(fn + ".prs1");
+				Printer prn1(fnprs1);
 				try
 				{
 					Node* node = parser.parse(true);
@@ -39,41 +43,49 @@ int main(int argc, char* argv[])
 				catch (std::exception& ex)
 				{
 					prn1 << ex.what();
-				}							
+				}			
+
+				DeleteFile(fnlxr.c_str());
 			}
 			else if (strcmp(argv[1], "-parser") == 0)
 			{
-				Lexer lexer(fn);
-				Parser parser(lexer);
-				Printer prn1(fn + ".prs1");
-				try
 				{
-					Node* node = parser.parse();
-					node->visit(&prn1);
+					Lexer lexer(fn, fnlxr);
+					Parser parser(lexer);
+					Printer prn1(fnprs1);
+					try
+					{
+						Node* node = parser.parse();
+						node->visit(&prn1);
+					}
+					catch (std::exception& ex)
+					{
+						prn1 << ex.what();
+					}
 				}
-				catch (std::exception& ex)
-				{
-					prn1 << ex.what();
-				}							
+				DeleteFile(fnlxr.c_str());
 			}
 			else if (strcmp(argv[1], "-generator") == 0)
 			{
-				Lexer lexer(fn);
-				Parser parser(lexer);
-				Printer prn1(fn + ".prs1");
-				CodeGenerator coder;
-				try
 				{
-					Node* node = parser.parse();
-					node->visit(&prn1);
-					AsmProg* prog = coder.generate((ProgramNode*)node);
-					prog->print(fn + ".asm");
-					delete prog;
+					Lexer lexer(fn, fnlxr);
+					Parser parser(lexer);
+					//Printer prn1(fnprs1);
+					CodeGenerator coder;
+					try
+					{
+						Node* node = parser.parse();
+						//node->visit(&prn1);
+						AsmProg* prog = coder.generate((ProgramNode*)node);
+						prog->print(fnasm);
+						delete prog;
+					}
+					catch (std::exception& ex)
+					{
+						//prn1 << ex.what();
+					}	
 				}
-				catch (std::exception& ex)
-				{
-					prn1 << ex.what();
-				}	
+				DeleteFile(fnlxr.c_str());
 			}
 		}
 	}
@@ -83,3 +95,4 @@ int main(int argc, char* argv[])
 	}
 	return 0;
 }
+

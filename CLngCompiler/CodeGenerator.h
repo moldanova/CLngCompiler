@@ -78,14 +78,26 @@ private:
 	void add(int cmd);
 	// добавить команду
 	void add(int cmd, AsmArg* arg1);
+	// добавить команду
+	void add(int cmd, int reg);
 	// Добавить команду
 	void add(int cmd, AsmArg* arg1, AsmArg* arg2);
 	// Добавить команду
-	void add(int cmd, std::string name);
+	void add(int cmd, int reg1, AsmArg* arg2);
+	// Добавить команду
+	void add(int cmd, AsmArg* arg1, int reg2);
+	// Добавить команду
+	void add(int cmd, int reg1, int reg2);
+	// Добавить метку
+	void add(std::string name);
 	// Создать аргумент
-	AsmArg* makeArg(int arg);
+	AsmArg* makeValArg(std::string val);
 	// Создать аргумент
-	AsmArg* makeArg(int arg, std::string val);
+	AsmArg* makeRegArg(int reg);
+	// Создать аргумент
+	AsmArg* makeMemArg(int reg, int offset = 0);
+	// Создать аргумент
+	AsmArg* makeMemArg(std::string name);
 	// добавить переменную
 	void addVar(std::string name, int type, std::string value);
 	// добавить переменную
@@ -93,4 +105,18 @@ private:
 
 	// Программа на ассемблере
 	AsmProg* asmProg;
+	// Счетчик констант
+	int valCount;
+	// Счетчик меток
+	int labelCount;
+	// Признак генерации кода для lvalue
+	bool lvalue;
+	// Признак использования сопросессора
+	bool useFPU;
+	// Стек меток для выхода из цикла
+	std::vector<std::string> breakStack;
+	// Стек метод для повторения цикла
+	std::vector<std::string> continueStack;
+	// Стек меток для выхода из функции
+	std::vector<std::string> returnStack;
 };

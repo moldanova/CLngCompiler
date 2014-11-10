@@ -139,16 +139,7 @@ Lexer::Lexer(std::string fileName, std::string outfileName)
 	if (!input)
 		throw std::exception("Illegal filename");
 }
-Lexer::Lexer(std::string fileName)
-	: input(fileName)
-	, line(1)
-	, col(0)
-	, ch(-1)
-{
-	// Проверка входного файла
-	if (!input)
-		throw std::exception("Illegal filename");
-}
+
 // деструктор
 Lexer::~Lexer()
 {
