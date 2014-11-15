@@ -82,6 +82,7 @@ class Lexer
 public:
 	// Конструктор
 	Lexer(std::string fileName, std::string outfileName);
+	Lexer(std::string fileName);
 	// деструктор
 	~Lexer();
 	// Получить следующую лексему

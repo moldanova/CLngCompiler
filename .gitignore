@@ -3,10 +3,12 @@ CLngCompiler.v11.suo
 CLngCompiler.v12.suo
 CLngCompiler.opensdf
 CLngCompiler.sdf
+CLngCompiler.sln
 *.opensdf
 *.sln
 *.ilk
 *.pdb
+*.sdf
 /Debug
 /CLngCompiler/Debug
 *.vcxproj
@@ -15,3 +17,5 @@ CLngCompiler.sdf
 *.sublime-workspace
 /ipch
 .gitignore
+/CLngCompiler/input.txt
+/CLngCompiler/input.txt.prs1

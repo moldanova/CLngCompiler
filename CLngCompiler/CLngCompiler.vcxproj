@@ -1,5 +1,5 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<Project DefaultTargets="Build" ToolsVersion="12.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+<Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
       <Configuration>Debug</Configuration>
@@ -11,7 +11,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <PropertyGroup Label="Globals">
-    <ProjectGuid>{19DBA884-381B-44B2-992B-990F4278B216}</ProjectGuid>
+    <ProjectGuid>{85CA1A2D-AF97-4CD4-BB79-79ADE933C651}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
     <RootNamespace>CLngCompiler</RootNamespace>
   </PropertyGroup>
@@ -19,15 +19,15 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v120</PlatformToolset>
-    <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v110</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v120</PlatformToolset>
+    <PlatformToolset>v110</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
-    <CharacterSet>MultiByte</CharacterSet>
+    <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ImportGroup Label="ExtensionSettings">
@@ -47,7 +47,8 @@
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
-      <PrecompiledHeader>Use</PrecompiledHeader>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
@@ -60,7 +61,8 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
-      <PrecompiledHeader>Use</PrecompiledHeader>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
@@ -74,12 +76,25 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <Text Include="ReadMe.txt" />
+    <ClCompile Include="Asm.cpp" />
+    <ClCompile Include="Calculator.cpp" />
+    <ClCompile Include="CodeGenerator.cpp" />
+    <ClCompile Include="Exceptions.cpp" />
+    <ClCompile Include="Lexeme.cpp" />
+    <ClCompile Include="Lexer.cpp" />
+    <ClCompile Include="main.cpp" />
+    <ClCompile Include="Nodes.cpp" />
+    <ClCompile Include="Parser.cpp" />
+    <ClCompile Include="Printer.cpp" />
+    <ClCompile Include="stdafx.cpp" />
+    <ClCompile Include="Symbols.cpp" />
+    <ClCompile Include="Value.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Asm.h" />
     <ClInclude Include="Calculator.h" />
     <ClInclude Include="CodeGenerator.h" />
+    <ClInclude Include="Exceptions.h" />
     <ClInclude Include="Flag.h" />
     <ClInclude Include="Lexeme.h" />
     <ClInclude Include="Lexer.h" />
@@ -88,27 +103,11 @@
     <ClInclude Include="Printer.h" />
     <ClInclude Include="stdafx.h" />
     <ClInclude Include="Symbols.h" />
-    <ClInclude Include="Exceptions.h" />
     <ClInclude Include="targetver.h" />
     <ClInclude Include="Value.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="Asm.cpp" />
-    <ClCompile Include="Calculator.cpp" />
-    <ClCompile Include="CodeGenerator.cpp" />
-    <ClCompile Include="Lexeme.cpp" />
-    <ClCompile Include="Lexer.cpp" />
-    <ClCompile Include="main.cpp" />
-    <ClCompile Include="Nodes.cpp" />
-    <ClCompile Include="Parser.cpp" />
-    <ClCompile Include="Printer.cpp" />
-    <ClCompile Include="stdafx.cpp">
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
-    </ClCompile>
-    <ClCompile Include="Symbols.cpp" />
-    <ClCompile Include="Exceptions.cpp" />
-    <ClCompile Include="Value.cpp" />
+    <Text Include="input.txt" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
