@@ -104,4 +104,9 @@
       <Filter>Source Files</Filter>
     </Text>
   </ItemGroup>
+  <ItemGroup>
+    <None Include="input.txt.prs1">
+      <Filter>Source Files</Filter>
+    </None>
+  </ItemGroup>
 </Project>

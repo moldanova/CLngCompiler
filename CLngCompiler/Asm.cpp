@@ -36,7 +36,7 @@ const char* cmdName[] = {
 //---------------------------------------------------------------------------
 
 // Конструктор
-AsmVar::AsmVar(std::string name, int type, std::string value)
+AsmVar::AsmVar(std::string name, std::string type, std::string value)
 {
 	this->name = name;
 	this->type = type;
@@ -45,7 +45,7 @@ AsmVar::AsmVar(std::string name, int type, std::string value)
 }
 
 // Конструктор
-AsmVar::AsmVar(std::string name, int type, int count)
+AsmVar::AsmVar(std::string name, std::string type, int count)
 {
 	this->name = name;
 	this->type = type;
@@ -55,19 +55,10 @@ AsmVar::AsmVar(std::string name, int type, int count)
 // Вывести в файл
 void AsmVar::print(std::ofstream& out)
 {
-	out << "\t" << name;
-	if (type == varDB)
-		out << " db ";
+	if (value.empty())
+		out << "\t" << name << " " << type << " 0" << std::endl;
 	else
-		out << " dd ";
-	if (count == 0)
-	{
-		//TODO: добавить правильный вывод строкового значения
-		out << value << std::endl;
-	}
-	else
-		out << count << " dup(0)" << std::endl;
-
+		out << "\t" << name << " " << type << " " << value << std::endl;
 }
 
 //---------------------------------------------------------------------------
@@ -104,7 +95,7 @@ void AsmArg::print(std::ofstream& out)
 		out << value;
 	else if (arg == argREG)
 		out << regName[reg];
-	else
+	else if (arg == argMEMORY)
 	{
 		if (!value.empty())
 			out << value;
@@ -112,6 +103,10 @@ void AsmArg::print(std::ofstream& out)
 			out << "[" << regName[reg] << "+" << std::to_string(offset) << "]";
 		else
 			out << "[" << regName[reg] << "]";
+	}
+	else
+	{
+		out << "offset " << value;
 	}
 }
 
@@ -141,15 +136,6 @@ AsmCmd::AsmCmd(int cmd, AsmArg* arg1, AsmArg* arg2)
 	this->arg2 = arg2;
 }
 
-// Конструктор
-AsmCmd::AsmCmd(int cmd, std::string val)
-{
-	this->cmd = cmd;
-	this->arg1 = NULL;
-	this->arg2 = NULL;
-	this->val = val;
-}
-
 // деструктор
 AsmCmd::~AsmCmd()
 {
@@ -164,7 +150,8 @@ void AsmCmd::print(std::ofstream& out)
 {
 	if (cmd == cmdLABEL)
 	{
-		out << val << ":" << std::endl;
+		arg1->print(out);
+		out << ":" << std::endl;
 	}
 	else
 	{
@@ -179,12 +166,72 @@ void AsmCmd::print(std::ofstream& out)
 			out << ", ";
 			arg2->print(out);
 		}
-		if (!val.empty())
-		{
-			out << " " << val;
-		}
 		out << std::endl;
 	}
+}
+
+//---------------------------------------------------------------------------
+
+// Конструктор
+AsmProc::AsmProc(std::string name)
+{
+	this->name = name;
+}
+
+// деструктор
+AsmProc::~AsmProc()
+{
+	for (int i = 0; i < param.size(); i++)
+		delete param[i];
+	param.clear();
+
+	for (int i = 0; i < local.size(); i++)
+		delete local[i];
+	local.clear();
+
+	for (int i = 0; i < code.size(); i++)
+		delete code[i];
+	code.clear();
+}
+
+// добавить параметр функции
+void AsmProc::addParam(AsmVar* var)
+{
+	param.push_back(var);
+}
+
+// добавить локальную переменную
+void AsmProc::addLocal(AsmVar* var)
+{
+	local.push_back(var);
+}
+
+// Добавить код программы
+void AsmProc::addCode(AsmCmd* cmd)
+{
+	code.push_back(cmd);
+}
+
+// Вывести в файл
+void AsmProc::print(std::ofstream& out)
+{
+	// заголовок процедуры
+	out << ";----------------------------------------" << std::endl;
+	out << name << " PROC NEAR C";
+	// параметры процедуры
+	for (int i = 0; i < param.size(); i++)
+		out << ", " << param[i]->name << ":" << param[i]->type;
+	out << std::endl;
+	// Локальные переменные
+	for (int i = 0; i < local.size(); i++)
+		out << "LOCAL " << local[i]->name << ":" << local[i]->type << std::endl;
+	// Код процедуры
+	for (int i = 0; i < code.size(); i++)
+		 code[i]->print(out);
+	// Завершение процедура
+	out << name << "_end:" << std::endl;
+	out << "\tret" << std::endl;
+	out << name << " ENDP" << std::endl;
 }
 
 //---------------------------------------------------------------------------
@@ -197,43 +244,63 @@ AsmProg::AsmProg()
 // деструктор
 AsmProg::~AsmProg()
 {
-	for (int i = 0; i < vars.size(); i++)
-		delete vars[i];
-	for (int i = 0; i < cmds.size(); i++)
-		delete cmds[i];
-	vars.clear();
-	cmds.clear();
+	for (int i = 0; i < global.size(); i++)
+		delete global[i];
+	global.clear();
+
+	for (int i = 0; i < proc.size(); i++)
+		delete proc[i];
+	proc.clear();
+
+	for (int i = 0; i < code.size(); i++)
+		delete code[i];	
+	code.clear();
 }
 
 // добавить глобальную перемнную
-void AsmProg::addVar(AsmVar* var)
+void AsmProg::addGlobal(AsmVar* var)
 {
-	vars.push_back(var);
+	global.push_back(var);
+}
+
+// добавить процедуру
+void AsmProg::addProc(AsmProc* proc)
+{
+	this->proc.push_back(proc);
 }
 
 // Добавить код программы
-void AsmProg::addCmd(AsmCmd* cmd)
+void AsmProg::addCode(AsmCmd* cmd)
 {
-	cmds.push_back(cmd);
+	code.push_back(cmd);
 }
 
 // Вывести программу на печать
 void AsmProg::print(std::string fileName)
 {
-	 std::ofstream out(fileName, std::ios::out | std::ios::trunc);
-	 out << ".686" << std::endl;
-	 out << ".model flat, stdcall" << std::endl;
-	 out << "include c:\masm32\include\msvcrt.inc" << std::endl;
-	 out << "includelib c:\masm32\lib\msvcrt.lib" << std::endl;
-	 out << ".data" << std::endl; 
+	std::ofstream out(fileName, std::ios::out | std::ios::trunc);
+	out << ".386" << std::endl;
+	out << ".model flat, stdcall" << std::endl;
+	out << "include c:\\masm32\\include\\msvcrt.inc" << std::endl;
+	out << "includelib c:\\masm32\\lib\\msvcrt.lib" << std::endl;
 
-	 for (int i = 0; i < vars.size(); i++)
-		 vars[i]->print(out);
+	 out << ".data" << std::endl;
+
+	 for (int i = 0; i < global.size(); i++)
+		 global[i]->print(out);
 
 	 out << ".code" << std::endl;
 
-	 for (int i = 0; i < cmds.size(); i++)
-		 cmds[i]->print(out);
+	 for (int i = 0; i < proc.size(); i++)
+		 proc[i]->print(out);
 
+	 out << ";----------------------------------------" << std::endl;
+	 out << "start:" << std::endl;
+
+	 for (int i = 0; i < code.size(); i++)
+		 code[i]->print(out);
+
+	 out << "\tcall f_main" << std::endl;
+	 out << "\tret" << std::endl;
 	 out << "end start" << std::endl;
 }

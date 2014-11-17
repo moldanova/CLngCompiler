@@ -17,7 +17,7 @@ int main(int argc, char* argv[])
 		//	std::string fn = argv[2];
 		//	std::string fnlxr = fn + ".lxr";
 		//	std::string fnprs1 = fn + ".prs1";
-		//	std::string fnasm = fn + ".test.asm";
+		//	std::string fnasm = fn + ".asm";
 
 		//	if (strcmp(argv[1], "-lexer") == 0)
 		//	{
@@ -32,21 +32,21 @@ int main(int argc, char* argv[])
 		//	}
 		//	else if (strcmp(argv[1], "-expression") == 0)
 		//	{
-		//		Lexer lexer(fn);
-		//		Parser parser(lexer);
-		//		Printer prn1(fnprs1);
-		//		try
 		//		{
-		//			Node* node = parser.parse(true);
-		//			node->visit(&prn1);
+		//			Lexer lexer(fn);
+		//			Parser parser(lexer);
+		//			Printer prn1(fnprs1);
+		//			try
+		//			{
+		//				Node* node = parser.parse(true);
+		//				node->visit(&prn1);
+		//			}
+		//			catch (std::exception& ex)
+		//			{
+		//				prn1 << ex.what();
+		//			}			
 		//		}
-		//		catch (std::exception& ex)
-		//		{
-		//			prn1 << ex.what();
-		//		}			
-
 		//		//DeleteFile(fnlxr.c_str());
-		//		remove(fnlxr.c_str());
 		//	}
 		//	else if (strcmp(argv[1], "-parser") == 0)
 		//	{
@@ -65,7 +65,6 @@ int main(int argc, char* argv[])
 		//			}
 		//		}
 		//		//DeleteFile(fnlxr.c_str());
-		//		remove(fnlxr.c_str());
 		//	}
 		//	else if (strcmp(argv[1], "-generator") == 0)
 		//	{
@@ -88,7 +87,6 @@ int main(int argc, char* argv[])
 		//			}	
 		//		}
 		//		//DeleteFile(fnlxr.c_str());
-		//		remove(fnlxr.c_str());
 		//	}
 		//}
 		std::string fn = "input.txt";

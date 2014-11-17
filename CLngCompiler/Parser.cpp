@@ -638,9 +638,10 @@ Node* Parser::parsePostfixExpression()
 					Node* arg = parseAssignmentExpression();					
 					if (arg)
 					{
-						check(n >= fsymbol->params.count(), "function has no more params", lex);
+						check(!fsymbol->isVarParams && n >= fsymbol->params.count(), "function has no more params", lex);
 						fnode->addNode(arg);
-						check(!arg->getType()->canConvertTo((TypeSymbol*)fsymbol->params[n]), "function args type mismatch", lex);
+						if (n < fsymbol->params.count())
+							check(!arg->getType()->canConvertTo((TypeSymbol*)fsymbol->params[n]), "function args type mismatch", lex);
 						n++;
 						if (lex != LEX_COMMA)
 							break;
@@ -906,20 +907,22 @@ Node* Parser::parseForStatement()
 
 	// Первое выражение может содержать декларацию переменной.
 	// это противоречит заданной грамматике, но очень удобно.
+	// исправлено по требованию
+	
 	NodesArrayNode node;
 	Node* expr1 = NULL;
-	if (parseDeclaration(&node))
-	{
-		check(node.nodes.size() != 1, "invalid first expression", lex);
-		expr1 = node.nodes[0];
-		node.nodes.clear();
-	}
-	else
-	{
+	//if (parseDeclaration(&node))
+	//{
+	//	check(node.nodes.size() != 1, "invalid first expression", lex);
+	//	expr1 = node.nodes[0];
+	//	node.nodes.clear();
+	//}
+	//else
+	//{
 		expr1 = parseExpression();
 		check(lex != LEX_SEMICOLON, "expected \';\'", lex);
 		next();
-	}
+	//}
 	Node* expr2 = parseExpression();
 	check(lex != LEX_SEMICOLON, "expected \';\'", lex);
 	next();

@@ -1,18 +1,12 @@
 #pragma once
 
-// Тип переменной
-enum
-{
-	varDB,	// 1 байт
-	varDD	// 4 байта
-};
-
 // Тип аргумента
 enum
 {
 	argVALUE,
 	argREG,
-	argMEMORY
+	argMEMORY,
+	argOFFSET
 };
 
 // Регистры
@@ -56,16 +50,15 @@ enum
 class AsmVar
 {
 public:
-	
 	// Конструктор
-	AsmVar(std::string name, int type, std::string value);
+	AsmVar(std::string name, std::string type, std::string value);
 	// Конструктор
-	AsmVar(std::string name, int type, int count);
+	AsmVar(std::string name, std::string type, int count);
 	// Вывести в файл
 	void print(std::ofstream& out);
 
 	std::string name;
-	int type;
+	std::string type;
 	int count;
 	std::string value;
 };
@@ -93,24 +86,49 @@ public:
 class AsmCmd
 {
 public:
-	
 	// Конструктор
 	AsmCmd(int cmd);	
 	// Конструктор
 	AsmCmd(int cmd, AsmArg* arg1);
 	// Конструктор
 	AsmCmd(int cmd, AsmArg* arg1, AsmArg* arg2);
-	// Конструктор
-	AsmCmd(int cmd, std::string val);
 	// деструктор
 	~AsmCmd();
 	// Вывести в файл
 	void print(std::ofstream& out);
 
+	// Код команды
 	int cmd;
+	// Аргументы
 	AsmArg* arg1;
 	AsmArg* arg2;
-	std::string val;
+};
+
+// Класс процедуры на ассемблере
+class AsmProc
+{
+public:
+	// Конструктор
+	AsmProc(std::string name);
+	// деструктор
+	~AsmProc();	
+	// добавить параметр функции
+	void addParam(AsmVar* var);
+	// добавить локальную переменную
+	void addLocal(AsmVar* var);
+	// Добавить код программы
+	void addCode(AsmCmd* cmd);
+	// Вывести в файл
+	void print(std::ofstream& out);
+
+	// название функции
+	std::string name;
+	// параметры функции
+	std::vector<AsmVar*> param;
+	// локальные переменные
+	std::vector<AsmVar*> local;
+	// Код функции
+	std::vector<AsmCmd*> code;
 };
 
 // Класс программы на ассемблере
@@ -122,13 +140,19 @@ public:
 	// деструктор
 	~AsmProg();
 	// добавить глобальную перемнную
-	void addVar(AsmVar* var);
+	void addGlobal(AsmVar* var);
+	// добавить процедуру
+	void addProc(AsmProc* proc);
 	// Добавить код программы
-	void addCmd(AsmCmd* cmd);
+	void addCode(AsmCmd* cmd);
 	// Вывести программу на печать
 	void print(std::string fileName);
 
-	std::vector<AsmVar*> vars;
-	std::vector<AsmCmd*> cmds;
+	// Глобальные переменные
+	std::vector<AsmVar*> global;
+	// Процедуры
+	std::vector<AsmProc*> proc;
+	// Код программы
+	std::vector<AsmCmd*> code;
 
 };

@@ -425,16 +425,23 @@ Lexeme Lexer::parseExp()
 // разобрать строковую константу
 Lexeme Lexer::parseString()
 {	
+	std::string s;
 	while (ch != -1)
 	{
+		s += ch;
 		getChar();
 		if (ch == '"')
 		{
+			s += ch;
 			getChar();
+			text = s;
 			return makeLex(LEX_STRING_VALUE);
 		}
 		if (ch == '\\')
+		{
+			s += ch;
 			getChar();
+		}
 		if (ch == '\n' || ch == '\r')
 			return makeLex(LEX_ERROR);
 	}

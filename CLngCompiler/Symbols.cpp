@@ -28,9 +28,12 @@ void Symbol::visit(ISymbolVisitor* visitor)
 
 //-------------------------------------------------------------------------
 
+int symbolTableCount = 1;
+
 // Конструктор
 SymbolsTable::SymbolsTable()
 {
+	name = std::to_string(symbolTableCount++);
 }
 
 // Деструктор
@@ -50,6 +53,21 @@ void SymbolsTable::visit(ISymbolVisitor* visitor)
 // добавить символ
 void SymbolsTable::addSymbol(Symbol* symbol)
 {
+	if (!symbol->isType())
+	{
+		ItemSymbol* is = (ItemSymbol*)symbol;
+		if (is->isVariable())
+		{
+			VariableSymbol* vs = (VariableSymbol*)is;
+			vs->asmName = "var" + name + "_" + vs->name;
+		}
+		else if (is->isFunction())
+		{
+			FunctionSymbol* fs = (FunctionSymbol*)is;
+			fs->asmName = "f_" + fs->name;
+		}
+	}
+
 	symbols.push_back(symbol);
 }
 
@@ -148,9 +166,6 @@ bool TypeSymbol::canConvertTo(TypeSymbol* to)
 	// Если оба типа указатели на указатели
 	if (isPointer() && baseType->isPointer() && to->isPointer() && to->baseType->isPointer())
 		return baseType->canConvertTo(to->baseType);
-	// Совместимость указателя и массива
-	if (isPointer() && to->isArray() && *baseType == *(to->baseType))	
-		return true;
 	// Правила совместимости числовых значений
 	if (name == "const char" && to->name == "char")
 		return true;	
@@ -367,6 +382,7 @@ void VariableSymbol::visit(ISymbolVisitor* visitor)
 FunctionSymbol::FunctionSymbol(std::string name, TypeSymbol* type)
 	: ItemSymbol(name, type)
 {
+	isVarParams = false;
 }
 
 // Деструктор

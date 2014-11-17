@@ -23,7 +23,7 @@ public:
 	// Признак изменяемой переменной
 	virtual bool isModificableLvalue() { return false; }
 	// Название типа
-	std::string name;
+	std::string name;	
 };
 
 //-------------------------------------------------------------------------
@@ -50,6 +50,9 @@ public:
 	int count() { return symbols.size(); }
 	// Получить длину
 	int getLength();
+
+	// название таблицы
+	std::string name;
 	// Список типов
 	std::vector<Symbol*> symbols;
 };
@@ -83,12 +86,12 @@ public:
 	bool isConst() { return mode == MODE_CONST; }
 	// Признак указателя
 	bool isPointer() { return mode == MODE_POINTER; }
-	// Признак массива
-	virtual bool isArray() { return false; }
-	// Признак структуры
-	virtual bool isStruct() { return false; }
 	// Признак псевдонима
 	virtual bool isAlias() { return false; }
+	// Признак структуры
+	virtual bool isStruct() { return false; }	
+	// Признак массива
+	virtual bool isArray() { return false; }	
 	// Признак скалярного типа
 	bool isScalar() { return isChar() || isInt() || isFloat(); }
 	// Признак типа char
@@ -191,8 +194,16 @@ public:
 	virtual ~ItemSymbol();
 	// Посетить символ
 	virtual void visit(ISymbolVisitor* visitor);
+	// Признак константы
+	virtual bool isConstant() { return false; }
+	// Признак переменной
+	virtual bool isVariable() { return false; }
+	// Признак функции
+	virtual bool isFunction() { return false; }
 	// Тип значения
 	TypeSymbol* type;
+	// Имя в коде программы
+	std::string asmName;
 };
 
 //-------------------------------------------------------------------------
@@ -207,6 +218,8 @@ public:
 	virtual ~ConstantSymbol();
 	// Посетить символ
 	virtual void visit(ISymbolVisitor* visitor);
+	// Признак константы
+	virtual bool isConstant() { return true; }	
 };
 
 //-------------------------------------------------------------------------
@@ -225,6 +238,8 @@ public:
 	virtual bool isLvalue() { return true; }
 	// Признак изменяемой переменной
 	virtual bool isModificableLvalue() { return !type->isConst(); }
+	// Признак переменной
+	virtual bool isVariable() { return true; }
 };
 
 //-------------------------------------------------------------------------
@@ -239,8 +254,12 @@ public:
 	virtual ~FunctionSymbol();
 	// Посетить символ
 	virtual void visit(ISymbolVisitor* visitor);
+	// Признак функции
+	virtual bool isFunction() { return true; }
 	// Параметры функции
 	SymbolsTable params;
+	// Признак бесконечного количества параметров
+	bool isVarParams;
 };
 
 //-------------------------------------------------------------------------

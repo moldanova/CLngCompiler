@@ -116,7 +116,7 @@ void Printer::OnSymbol(StructSymbol* symbol)
 	else
 	{
 		output << "struct " << symbol->name << std::endl;
-		output << std::string(spaces, ' ') << "fileds:" << std::endl;
+		output << std::string(spaces, ' ') << "fields:" << std::endl;
 		spaces += INDENT;		
 		symbol->fields.visit(this);
 		spaces -= INDENT;

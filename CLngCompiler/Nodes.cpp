@@ -85,10 +85,31 @@ void NodesArrayNode::addNode(Node* node)
 // Конструктор
 ProgramNode::ProgramNode()
 {
-	globals.addSymbol(new TypeSymbol("void"));
-	globals.addSymbol(new TypeSymbol("char"));
+	TypeSymbol* voidType = new TypeSymbol("void");
+	TypeSymbol* charType = new TypeSymbol("char");
+	TypeSymbol* constCharType = new TypeSymbol(charType, TypeSymbol::MODE_CONST);
+	TypeSymbol* ptrConstCharType = new TypeSymbol(constCharType, TypeSymbol::MODE_POINTER);
+
+	globals.addSymbol(voidType);
+	globals.addSymbol(charType);
+	globals.addSymbol(constCharType);
+	globals.addSymbol(ptrConstCharType);
 	globals.addSymbol(new TypeSymbol("int"));
 	globals.addSymbol(new TypeSymbol("float"));
+
+	// описание функции printf
+	FunctionSymbol* fs = new FunctionSymbol("printf", voidType);
+	fs->params.addSymbol(ptrConstCharType);
+	fs->isVarParams = true;
+	globals.addSymbol(fs);
+	fs->asmName = "_imp__printf";
+
+	// Описанеи функции scanf
+	fs = new FunctionSymbol("scanf", voidType);
+	fs->params.addSymbol(ptrConstCharType);
+	fs->isVarParams = true;
+	globals.addSymbol(fs);
+	fs->asmName = "_imp__scanf";
 }
 
 // Деструктор

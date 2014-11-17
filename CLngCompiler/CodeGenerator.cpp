@@ -19,8 +19,11 @@ CodeGenerator::~CodeGenerator()
 AsmProg* CodeGenerator::generate(ProgramNode* prog)
 {
 	asmProg = new AsmProg();
+	asmProc = NULL;
 	valCount = 0;
 	labelCount = 0;
+	tableCount = 0;
+	isParams = false;
 	lvalue = false;
 	useFPU = false;
 
@@ -36,7 +39,6 @@ AsmProg* CodeGenerator::generate(ProgramNode* prog)
 	}
 
 	// Транслируем весь остальной код
-	add("start");
 	for (int i = 0; i < prog->nodes.size(); i++)
 	{
 		Node* node = prog->nodes[i];
@@ -44,10 +46,6 @@ AsmProg* CodeGenerator::generate(ProgramNode* prog)
 		if (!fnode)
 			node->visit(this);
 	}
-	// Добавляем вызов функции main
-	add(cmdCALL, makeValArg("f_main"));
-	// Выход из программы
-	add(cmdRET, makeValArg("0"));
 
 	return asmProg;
 }
@@ -58,9 +56,20 @@ void CodeGenerator::OnSymbol(SymbolsTable* table)
 	for (int i = 0; i < table->symbols.size(); i++)
 	{
 		Symbol* symbol = table->symbols[i];
-		VariableSymbol* var = dynamic_cast<VariableSymbol*>(symbol);
-		if (var)
-			addVar("var_" + var->name, varDD, var->type->getLength() / 4);
+		VariableSymbol* vs = dynamic_cast<VariableSymbol*>(symbol);
+		if (vs)
+		{
+			if (vs->type->isChar())
+				var(vs->asmName, "SBYTE", 1);
+			else if (vs->type->isInt())
+				var(vs->asmName, "SDWORD", 1);
+			else if (vs->type->isFloat())
+				var(vs->asmName, "REAL4", 1);
+			else if (vs->type->isPointer())
+				var(vs->asmName, "DWORD", 1);
+			else
+				var(vs->asmName, "DWORD", vs->type->getLength() / 4);
+		}
 	}
 }
 
@@ -160,23 +169,63 @@ bool IsAssignment(int lex)
 // Посетить узел бинарной операции
 void CodeGenerator::OnNode(BinaryOpNode* node)
 {
-	Flag lv(&lvalue, true);
-	node->left->visit(this);		
-	lv.reset();
-	node->right->visit(this);
-	add(cmdPOP, EBX);
-	add(cmdPOP, EAX);
+	// Если это присваивание
+	if (node->lex == LEX_ASSIGNMENT || node->lex == LEX_ADD_ASSIGNMENT || node->lex == LEX_SUB_ASSIGNMENT
+		|| node->lex == LEX_MUL_ASSIGNMENT || node->lex == LEX_DIV_ASSIGNMENT)
+	{		
+		// Операнд справа
+		node->right->visit(this);
+		// Операнд слева
+		AsmArg* lArg = NULL;
+		VariableSymbol* vs = dynamic_cast<VariableSymbol*>(node->left->symbol);
+		if (vs)
+			lArg = memArg(vs->asmName);
+		else
+		{
+			Flag lv(&lvalue, true);
+			node->left->visit(this);		
+			code(cmdPOP, regArg(EAX));
+			lArg = memArg(EAX);
+		}
+		// операнды команды
+		code(cmdPOP, regArg(EBX));	
 
-	if (node->lex == LEX_ASSIGNMENT)
-		add(cmdMOV, makeMemArg(EAX), EBX);
-	if (node->lex == LEX_ADD_ASSIGNMENT)
-		add(cmdADD, makeMemArg(EAX), EBX);
-	if (node->lex == LEX_SUB_ASSIGNMENT)
-		add(cmdSUB, makeMemArg(EAX), EBX);
-	if (node->lex == LEX_MUL_ASSIGNMENT)
-		add(cmdMUL, makeMemArg(EAX), EBX);
-	if (node->lex == LEX_DIV_ASSIGNMENT)
-		add(cmdDIV, makeMemArg(EAX), EBX);
+		// Выполняем операцию
+		if (node->lex == LEX_ASSIGNMENT)
+			code(cmdMOV, lArg, regArg(EBX));
+		if (node->lex == LEX_ADD_ASSIGNMENT)
+			code(cmdADD, lArg, regArg(EBX));
+		if (node->lex == LEX_SUB_ASSIGNMENT)
+			code(cmdSUB, lArg, regArg(EBX));
+		if (node->lex == LEX_MUL_ASSIGNMENT)
+			code(cmdMUL, lArg, regArg(EBX));
+		if (node->lex == LEX_DIV_ASSIGNMENT)
+			code(cmdDIV, lArg, regArg(EBX));
+	}
+	// Бинарная операция
+	if (node->lex == LEX_ADD || node->lex == LEX_SUB || node->lex == LEX_MUL || node->lex == LEX_DIV)
+	{
+		// Операнд справа
+		node->right->visit(this);
+		// Операнд слева
+		node->left->visit(this);		
+	
+		// Подготавливаем операнды
+		code(cmdPOP, regArg(EAX));
+		code(cmdPOP, regArg(EBX));	
+
+		// Выполняем операцию
+		if (node->lex == LEX_ADD)
+			code(cmdADD, regArg(EAX), regArg(EBX));
+		if (node->lex == LEX_SUB)
+			code(cmdSUB, regArg(EAX), regArg(EBX));
+		if (node->lex == LEX_MUL)
+			code(cmdMUL, regArg(EAX), regArg(EBX));
+		if (node->lex == LEX_DIV)
+			code(cmdDIV, regArg(EAX), regArg(EBX));
+		
+		code(cmdPUSH, regArg(EAX));
+	}
 }
 
 // Посетить узел унарной операции
@@ -189,20 +238,20 @@ void CodeGenerator::OnNode(UnaryOpNode* node)
 		;
 	else if (node->lex == LEX_MUL)
 	{
-		add(cmdPOP, EAX);
-		add(cmdPUSH, makeMemArg(EAX));
+		code(cmdPOP, regArg(EAX));
+		code(cmdPUSH, memArg(EAX));
 	}
 	else if (node->lex == LEX_SUB)
 	{
-		add(cmdPOP, EAX);
-		add(cmdNEG, makeMemArg(EAX));
-		add(cmdPUSH, makeMemArg(EAX));
+		code(cmdPOP, regArg(EAX));
+		code(cmdNEG, memArg(EAX));
+		code(cmdPUSH, memArg(EAX));
 	}
 	else if (node->lex == LEX_INVERT)
 	{
-		add(cmdPOP, EAX);
-		add(cmdNOT, makeMemArg(EAX));
-		add(cmdPUSH, makeMemArg(EAX));
+		code(cmdPOP, regArg(EAX));
+		code(cmdNOT, memArg(EAX));
+		code(cmdPUSH, memArg(EAX));
 	}
 	else if (node->lex == LEX_NOT)
 	{
@@ -212,15 +261,42 @@ void CodeGenerator::OnNode(UnaryOpNode* node)
 // Посетить узел значения
 void CodeGenerator::OnNode(ValueNode* node)
 {
-	if (node->getType()->isPointer())
+	if (node->lex == LEX_STRING_VALUE)
 	{
+		// Необходимо преобразовать строку, так она может содержать управляющие последовательности символов
+		
+		std::string s;
+		int i = 0;
+		while (i < node->lex.text.size())
+		{
+			if (node->lex.text[i] == '\\')
+			{
+				i++;
+				if (node->lex.text[i] = 'n')
+					s += "\", 10";
+				if (node->lex.text[i] == 'r')
+					s += "\", 13";
+				i++;
+				if (i < node->lex.text.size()-1)
+					s += ", \"";
+				else
+					i++;
+			}
+			else
+			{
+				s += node->lex.text[i];
+				i++;
+			}
+		}
+		s += ", 0";
+
 		valCount++;
-		addVar("value_" + std::to_string(valCount), varDB, node->lex.text);
-		add(cmdPUSH, makeMemArg("value_" + std::to_string(valCount)));
+		value("value_" + std::to_string(valCount), "SBYTE", s);
+		code(cmdPUSH, offArg("value_" + std::to_string(valCount)));
 	}
 	else
 	{
-		add(cmdPUSH, makeValArg(node->lex.text));
+		code(cmdPUSH, valArg(node->lex.text));
 	}
 }
 
@@ -233,13 +309,11 @@ void CodeGenerator::OnNode(IdentifierNode* node)
 		// Это обращение к переменной
 		if (lvalue)
 		{
-			add(cmdLEA, EAX, makeMemArg(node->lex.text));
-			add(cmdPUSH, EAX);
+			code(cmdPUSH, offArg(v->asmName));
 		}
 		else
 		{
-			add(cmdMOV, EAX, makeMemArg(node->lex.text));
-			add(cmdPUSH, EAX);
+			code(cmdPUSH, memArg(v->asmName));
 		}
 	}
 }
@@ -251,57 +325,60 @@ void CodeGenerator::OnNode(ArrayNode* node)
 	node->var->visit(this);
 	lv.reset();
 	node->idx->visit(this);
-	add(cmdPOP, EBX);
-	add(cmdMUL, EBX, makeValArg(std::to_string(node->getType()->baseType->getLength())));
-	add(cmdPOP, EAX);
-	add(cmdADD, EAX, EBX);
+	code(cmdPOP, regArg(EBX));
+	code(cmdMUL, regArg(EBX), valArg(std::to_string(node->getType()->baseType->getLength())));
+	code(cmdPOP, regArg(EAX));
+	code(cmdADD, regArg(EAX), regArg(EBX));
 	if (lvalue)
-		add(cmdPUSH, EAX);
+		code(cmdPUSH, regArg(EAX));
 	else
-		add(cmdPUSH, makeMemArg(EAX));
+		code(cmdPUSH, memArg(EAX));
 }
 
 // Посетить узел вызова функции
 void CodeGenerator::OnNode(FuncCallNode* node)
 {
-	add(cmdCALL, makeValArg(node->func->lex.text));
+	// Транслируем операнды
+	for (int i = node->nodes.size()-1; i >= 0; i--)
+		node->nodes[i]->visit(this);
+	// Вызываем функцию
+	FunctionSymbol* fs = (FunctionSymbol*)(node->symbol);
+	code(cmdCALL, valArg(fs->asmName));
+	// Очищаем стек
+	code(cmdADD, regArg(ESP), valArg(std::to_string(node->nodes.size() * 4)));
 }
 
 // Посетить узел
 void CodeGenerator::OnNode(CompoundNode* node)
 {
-	// выделяем память под локальные переменные
-	int len = node->locals.getLength();
-	if (len)
-		add(cmdSUB, ESP, makeValArg(std::to_string(len)));
+	// транслируем локальные переменные
+	node->locals.visit(this);
 
 	// генерируем для вложенных узлов
 	for (int i = 0; i < node->nodes.size(); i++)
 		node->nodes[i]->visit(this);
-
-	// Удалем локальные переменные
-	if (len)
-		add(cmdADD, ESP, makeValArg(std::to_string(len)));
 }
 
 // Посетить узел функции
 void CodeGenerator::OnNode(FunctionNode* node)
 {
+	FunctionSymbol* fs = (FunctionSymbol*)node->symbol;
 	// Название функции
-	std::string name = "f_" + node->symbol->name;
-	// Метка и пролог
-	add(name);
-	add(cmdPUSH, EBP);
-	add(cmdMOV, EBP, ESP);
+	std::string label1 = fs->asmName + "_end";
+	
+	asmProc = new AsmProc(fs->asmName);
+	returnStack.push_back(label1);
 
+	// Транслируем параметры
+	isParams = true;
+	node->params.visit(this);
+	isParams = false;
 	// Транслируем тело функции
 	node->statement->visit(this);
 
-	// Окончание функции
-	add(name + "_end");
-	add(cmdMOV, ESP, EBP);
-	add(cmdPOP, EBP);
-	add(cmdRET, makeValArg("0"));
+	asmProg->addProc(asmProc);
+	asmProc = NULL;
+	returnStack.pop_back();
 }
 
 // Посетить узел
@@ -311,17 +388,17 @@ void CodeGenerator::OnNode(IfNode* node)
 	std::string label2 = "label" + std::to_string(labelCount++);
 	std::string label3 = "label" + std::to_string(labelCount++);
 	node->expr->visit(this);
-	add(cmdPOP, EAX);
-	add(cmdCMP, EAX, makeValArg(0));
-	add(cmdJNE, makeValArg(label1));
-	add(cmdJE, makeValArg(label2));
-	add(label1);
+	code(cmdPOP, regArg(EAX));
+	code(cmdCMP, regArg(EAX), valArg(0));
+	code(cmdJNE, valArg(label1));
+	code(cmdJE, valArg(label2));
+	label(label1);
 	node->statement1->visit(this);
-	add(cmdJMP, makeValArg(label3));
-	add(label2);
+	code(cmdJMP, valArg(label3));
+	label(label2);
 	if (node->statement2)
 		node->statement2->visit(this);
-	add(label3);
+	label(label3);
 }
 
 // Посетить узел
@@ -333,14 +410,14 @@ void CodeGenerator::OnNode(WhileNode* node)
 	continueStack.push_back(label1);
 	breakStack.push_back(label2);
 
-	add(label1);
+	label(label1);
 	node->expr->visit(this);
-	add(cmdPOP, EAX);
-	add(cmdCMP, EAX, makeValArg(0));
-	add(cmdJE, makeValArg(label2));
+	code(cmdPOP, regArg(EAX));
+	code(cmdCMP, regArg(EAX), valArg(0));
+	code(cmdJE, valArg(label2));
 	node->statement->visit(this);
-	add(cmdJMP, makeValArg(label1));
-	add(label2);
+	code(cmdJMP, valArg(label1));
+	label(label2);
 
 	continueStack.pop_back();
 	breakStack.pop_back();
@@ -355,13 +432,13 @@ void CodeGenerator::OnNode(DoNode* node)
 	continueStack.push_back(label1);
 	breakStack.push_back(label2);
 
-	add(label1);
+	label(label1);
 	node->statement->visit(this);
 	node->expr->visit(this);
-	add(cmdPOP, EAX);
-	add(cmdCMP, EAX, makeValArg(0));
-	add(cmdJNE, makeValArg(label1));
-	add(label2);
+	code(cmdPOP, regArg(EAX));
+	code(cmdCMP, regArg(EAX), valArg(0));
+	code(cmdJNE, valArg(label1));
+	label(label2);
 
 	continueStack.pop_back();
 	breakStack.pop_back();
@@ -379,16 +456,16 @@ void CodeGenerator::OnNode(ForNode* node)
 	breakStack.push_back(label3);
 
 	node->expr1->visit(this);
-	add(label1);
+	label(label1);
 	node->expr2->visit(this);
-	add(cmdPOP, EAX);
-	add(cmdCMP, EAX, makeValArg("0"));
-	add(cmdJE, makeValArg(label2));
+	code(cmdPOP, regArg(EAX));
+	code(cmdCMP, regArg(EAX), valArg("0"));
+	code(cmdJE, valArg(label2));
 	node->statement->visit(this);
-	add(label2);
+	label(label2);
 	node->expr3->visit(this);
-	add(cmdJMP, makeValArg(label1));
-	add(label3);
+	code(cmdJMP, valArg(label1));
+	label(label3);
 
 	continueStack.pop_back();
 	breakStack.pop_back();
@@ -397,101 +474,100 @@ void CodeGenerator::OnNode(ForNode* node)
 // Посетить узел
 void CodeGenerator::OnNode(BreakNode* node)
 {
-	add(cmdJMP, makeValArg(breakStack.back()));
+	code(cmdJMP, valArg(breakStack.back()));
 }
 
 // Посетить узел
 void CodeGenerator::OnNode(ContinueNode* node)
 {
-	add(cmdJMP, makeValArg(continueStack.back()));
+	code(cmdJMP, valArg(continueStack.back()));
 }
 
 // Посетить узел
 void CodeGenerator::OnNode(ReturnNode* node)
 {
-	add(cmdJMP, makeValArg(returnStack.back()));
+	code(cmdJMP, valArg(returnStack.back()));
 }
 
 // Добавить команду
-void CodeGenerator::add(int cmd)
+void CodeGenerator::code(int cmd)
 {
-	asmProg->addCmd(new AsmCmd(cmd));
+	if (asmProc)
+		asmProc->addCode(new AsmCmd(cmd));
+	else
+		asmProg->addCode(new AsmCmd(cmd));
 }
 
 // добавить команду
-void CodeGenerator::add(int cmd, AsmArg* arg1)
+void CodeGenerator::code(int cmd, AsmArg* arg1)
 {
-	asmProg->addCmd(new AsmCmd(cmd, arg1));
-}
-
-// добавить команду
-void CodeGenerator::add(int cmd, int reg)
-{
-	asmProg->addCmd(new AsmCmd(cmd, makeRegArg(reg)));
+	if (asmProc)
+		asmProc->addCode(new AsmCmd(cmd, arg1));
+	else
+		asmProg->addCode(new AsmCmd(cmd, arg1));
 }
 
 // Добавить команду
-void CodeGenerator::add(int cmd, AsmArg* arg1, AsmArg* arg2)
+void CodeGenerator::code(int cmd, AsmArg* arg1, AsmArg* arg2)
 {
-	asmProg->addCmd(new AsmCmd(cmd, arg1, arg2));
+	if (asmProc)
+		asmProc->addCode(new AsmCmd(cmd, arg1, arg2));
+	else
+		asmProg->addCode(new AsmCmd(cmd, arg1, arg2));
 }
 
 // Добавить команду
-void CodeGenerator::add(int cmd, int reg1, AsmArg* arg2)
+void CodeGenerator::label(std::string name)
 {
-	asmProg->addCmd(new AsmCmd(cmd, makeRegArg(reg1), arg2));
-}
-
-// Добавить команду
-void CodeGenerator::add(int cmd, AsmArg* arg1, int reg2)
-{
-	asmProg->addCmd(new AsmCmd(cmd, arg1, makeRegArg(reg2)));
-}
-
-// Добавить команду
-void CodeGenerator::add(int cmd, int reg1, int reg2)
-{
-	asmProg->addCmd(new AsmCmd(cmd, makeRegArg(reg1), makeRegArg(reg2)));
-}
-
-// Добавить команду
-void CodeGenerator::add(std::string name)
-{
-	asmProg->addCmd(new AsmCmd(cmdLABEL, name));
+	if (asmProc)
+		asmProc->addCode(new AsmCmd(cmdLABEL, valArg(name)));
+	else
+		asmProg->addCode(new AsmCmd(cmdLABEL, valArg(name)));
 }
 
 // Создать аргумент
-AsmArg* CodeGenerator::makeValArg(std::string val)
+AsmArg* CodeGenerator::valArg(std::string val)
 {
 	return new AsmArg(argVALUE, val);
 }
 
 // Создать аргумент
-AsmArg* CodeGenerator::makeRegArg(int reg)
+AsmArg* CodeGenerator::regArg(int reg)
 {
 	return new AsmArg(argREG, reg);
 }
 
 // Создать аргумент
-AsmArg* CodeGenerator::makeMemArg(int reg, int offset)
+AsmArg* CodeGenerator::memArg(int reg, int offset)
 {
 	return new AsmArg(argMEMORY, reg, offset);
 }
 
 // Создать аргумент
-AsmArg* CodeGenerator::makeMemArg(std::string name)
+AsmArg* CodeGenerator::memArg(std::string name)
 {
 	return new AsmArg(argMEMORY, name);
 }
 
-// добавить переменную
-void CodeGenerator::addVar(std::string name, int type, std::string value)
+// Создать аргумент
+AsmArg* CodeGenerator::offArg(std::string name)
 {
-	asmProg->addVar(new AsmVar(name, type, value));
+	return new AsmArg(argOFFSET, name);
 }
 
 // добавить переменную
-void CodeGenerator::addVar(std::string name, int type, int count)
+void CodeGenerator::value(std::string name, std::string type, std::string value)
 {
-	asmProg->addVar(new AsmVar(name, type, count));
+	asmProg->addGlobal(new AsmVar(name, type, value));
+}
+
+// добавить переменную
+void CodeGenerator::var(std::string name, std::string type, int count)
+{
+	if (asmProc && isParams)
+		asmProc->addParam(new AsmVar(name, type, count));
+	else if (asmProc)
+		asmProc->addLocal(new AsmVar(name, type, count));
+	else
+		asmProg->addGlobal(new AsmVar(name, type, count));
 }

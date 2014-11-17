@@ -75,40 +75,40 @@ public:
 private:
 
 	// Добавить команду
-	void add(int cmd);
+	void code(int cmd);
 	// добавить команду
-	void add(int cmd, AsmArg* arg1);
-	// добавить команду
-	void add(int cmd, int reg);
+	void code(int cmd, AsmArg* arg1);
 	// Добавить команду
-	void add(int cmd, AsmArg* arg1, AsmArg* arg2);
-	// Добавить команду
-	void add(int cmd, int reg1, AsmArg* arg2);
-	// Добавить команду
-	void add(int cmd, AsmArg* arg1, int reg2);
-	// Добавить команду
-	void add(int cmd, int reg1, int reg2);
+	void code(int cmd, AsmArg* arg1, AsmArg* arg2);
 	// Добавить метку
-	void add(std::string name);
+	void label(std::string name);
 	// Создать аргумент
-	AsmArg* makeValArg(std::string val);
+	AsmArg* valArg(std::string val);
 	// Создать аргумент
-	AsmArg* makeRegArg(int reg);
+	AsmArg* regArg(int reg);
 	// Создать аргумент
-	AsmArg* makeMemArg(int reg, int offset = 0);
+	AsmArg* memArg(int reg, int offset = 0);
 	// Создать аргумент
-	AsmArg* makeMemArg(std::string name);
+	AsmArg* memArg(std::string name);
+	// Создать аргумент
+	AsmArg* offArg(std::string name);
+	// добавить значение
+	void value(std::string name, std::string type, std::string value);
 	// добавить переменную
-	void addVar(std::string name, int type, std::string value);
-	// добавить переменную
-	void addVar(std::string name, int type, int count);
+	void var(std::string name, std::string type, int count);
 
 	// Программа на ассемблере
 	AsmProg* asmProg;
+	// текущая процедура
+	AsmProc* asmProc;
 	// Счетчик констант
 	int valCount;
 	// Счетчик меток
 	int labelCount;
+	// Счетчик таблиц символов
+	int tableCount;
+	// Признак разбора параметров функции
+	bool isParams;
 	// Признак генерации кода для lvalue
 	bool lvalue;
 	// Признак использования сопросессора
