@@ -59,16 +59,30 @@ void CodeGenerator::OnSymbol(SymbolsTable* table)
 		VariableSymbol* vs = dynamic_cast<VariableSymbol*>(symbol);
 		if (vs)
 		{
-			if (vs->type->isChar())
-				var(vs->asmName, "SBYTE", 1);
-			else if (vs->type->isInt())
-				var(vs->asmName, "SDWORD", 1);
-			else if (vs->type->isFloat())
-				var(vs->asmName, "REAL4", 1);
-			else if (vs->type->isPointer())
-				var(vs->asmName, "DWORD", 1);
+			TypeSymbol* ts = vs->type;
+
+			// Дополнительно для массива
+			int count = 0;
+			if (ts->isArray())
+			{
+				count = ((ArraySymbol*)vs->type)->count;
+				ts = ts->baseType;
+			}
+
+			// Символ
+			if (ts->isChar())
+				var(vs->asmName, "SBYTE", count);
+			// целое
+			else if (ts->isInt())
+				var(vs->asmName, "SDWORD", count);
+			// вещественное
+			else if (ts->isFloat())
+				var(vs->asmName, "REAL4", count);
+			// Указатель
+			else if (ts->isPointer())
+				var(vs->asmName, "DWORD", count);
 			else
-				var(vs->asmName, "DWORD", vs->type->getLength() / 4);
+				var(vs->asmName, ts->name, count);
 		}
 	}
 }
@@ -148,7 +162,20 @@ void CodeGenerator::OnNode(ExpressionNode* node)
 // Посетить узел условного выраженрия
 void CodeGenerator::OnNode(ConditionalNode* node)
 {
-	throw std::exception("Internal program error");
+	std::string label1 = "label" + std::to_string(labelCount++);
+	std::string label2 = "label" + std::to_string(labelCount++);
+	std::string label3 = "label" + std::to_string(labelCount++);
+	node->left->visit(this);
+	code(cmdPOP, regArg(EAX));
+	code(cmdCMP, regArg(EAX), valArg("0"));
+	code(cmdJNE, valArg(label1));
+	code(cmdJE, valArg(label2));
+	label(label1);
+	node->first->visit(this);
+	code(cmdJMP, valArg(label3));
+	label(label2);
+	node->second->visit(this);
+	label(label3);
 }
 
 bool IsAssignment(int lex)
@@ -178,7 +205,7 @@ void CodeGenerator::OnNode(BinaryOpNode* node)
 		// Операнд слева
 		AsmArg* lArg = NULL;
 		VariableSymbol* vs = dynamic_cast<VariableSymbol*>(node->left->symbol);
-		if (vs)
+		if (vs && vs->type->isScalar())
 			lArg = memArg(vs->asmName);
 		else
 		{
@@ -303,18 +330,19 @@ void CodeGenerator::OnNode(ValueNode* node)
 // Посетить узел идентификатора
 void CodeGenerator::OnNode(IdentifierNode* node)
 {
-	VariableSymbol* v = dynamic_cast<VariableSymbol*>(node->symbol);
-	if (v)
+	VariableSymbol* vs = dynamic_cast<VariableSymbol*>(node->symbol);
+	if (vs)
 	{
+		TypeSymbol* ts = vs->type;
 		// Это обращение к переменной
 		if (lvalue)
 		{
-			code(cmdPUSH, offArg(v->asmName));
+			code(cmdLEA, regArg(EAX), memArg(vs->asmName));
+			code(cmdPUSH, regArg(EAX));
+			//code(cmdPUSH, offArg(vs->asmName));
 		}
 		else
-		{
-			code(cmdPUSH, memArg(v->asmName));
-		}
+			code(cmdPUSH, memArg(vs->asmName));
 	}
 }
 
@@ -326,7 +354,7 @@ void CodeGenerator::OnNode(ArrayNode* node)
 	lv.reset();
 	node->idx->visit(this);
 	code(cmdPOP, regArg(EBX));
-	code(cmdMUL, regArg(EBX), valArg(std::to_string(node->getType()->baseType->getLength())));
+	code(cmdMUL, regArg(EBX), valArg(std::to_string(node->getType()->getLength())));
 	code(cmdPOP, regArg(EAX));
 	code(cmdADD, regArg(EAX), regArg(EBX));
 	if (lvalue)

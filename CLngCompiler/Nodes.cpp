@@ -151,8 +151,19 @@ void ExpressionNode::visit(INodeVisitor* visitor)
 
 //---------------------------------------------------------------------------
 
+// Вычислить тип результата
+TypeSymbol* ConditionalNode::makeType(Lexeme lex, Node* first, Node* second)
+{
+	if (first->getType()->name != second->getType()->name)
+	{
+		throw SyntaxException("first and second expreession must have one type", lex);
+	}
+	return first->getType();
+}
+
 // Конструктор
-ConditionalNode::ConditionalNode(Node* left, Node* first, Node* second)
+ConditionalNode::ConditionalNode(Symbol* symbol, Node* left, Node* first, Node* second)
+	: Node(symbol)
 {
 	this->left = left;
 	this->first = first;
@@ -182,7 +193,7 @@ TypeSymbol* BinaryOpNode::makeType(Lexeme lex, Node* left, Node* right)
 	TypeSymbol* rtype = right->getType();
 	if (lex == LEX_ASSIGNMENT)
 	{
-		if (!left->symbol->isModificableLvalue())
+		if (!left->isModificableLValue())
 			throw SyntaxException("left operand must be modificable lvalue", lex);
 
 		// Особо обрабатываем присваивание переменной указателя на строку
@@ -198,7 +209,7 @@ TypeSymbol* BinaryOpNode::makeType(Lexeme lex, Node* left, Node* right)
 	}
 	if (lex == LEX_MUL_ASSIGNMENT || lex == LEX_DIV_ASSIGNMENT)
 	{
-		if (!left->symbol->isModificableLvalue())
+		if (!left->isModificableLValue())
 			throw SyntaxException("left operand must be modificable lvalue", lex);
 		if (!ltype->isScalar() || !rtype->isScalar())
 			throw SyntaxException("operands must be scalar type", lex);
@@ -210,7 +221,7 @@ TypeSymbol* BinaryOpNode::makeType(Lexeme lex, Node* left, Node* right)
 	if (lex == LEX_PERSENT_ASSIGNMENT || lex == LEX_LSHIFT_ASSIGNMENT || lex == LEX_RSHIFT_ASSIGNMENT
 		|| lex == LEX_AND_ASSIGNMENT || lex == LEX_XOR_ASSIGNMENT || lex == LEX_OR_ASSIGNMENT)
 	{
-		if (!left->symbol->isModificableLvalue())
+		if (!left->isModificableLValue())
 			throw SyntaxException("left operand must be modificable lvalue", lex);
 		if (!ltype->isInt() || !rtype->isInt())
 			throw SyntaxException("operands must be integer type", lex);
@@ -218,7 +229,7 @@ TypeSymbol* BinaryOpNode::makeType(Lexeme lex, Node* left, Node* right)
 	}
 	if (lex == LEX_ADD_ASSIGNMENT || lex == LEX_SUB_ASSIGNMENT)
 	{
-		if (!left->symbol->isModificableLvalue())
+		if (!left->isModificableLValue())
 			throw SyntaxException("left operand must be modificable lvalue", lex);
 		if (!(ltype->isScalar() || ltype->isPointer()))
 			throw SyntaxException("operands must be scalar type or pointer", lex);
@@ -302,7 +313,7 @@ TypeSymbol* UnaryOpNode::makeType(Lexeme lex, Node* right, bool postfix)
 	if (lex == LEX_INCREMENT || lex == LEX_DECREMENT)
 	{
 		// Проверяем возможность модификации значения
-		if (!right->symbol->isModificableLvalue())
+		if (!right->isModificableLValue())
 			throw SyntaxException("operand must be modificable lvalue", lex);		
 		if (type->isPointer() || type->name == "char" || type->name == "int" || type->name == "float")
 			return type;
@@ -310,7 +321,7 @@ TypeSymbol* UnaryOpNode::makeType(Lexeme lex, Node* right, bool postfix)
 	}
 	if (lex == LEX_AND)
 	{
-		if (!right->symbol->isLvalue())
+		if (!right->isLValue())
 			throw SyntaxException("operand of \'&\' must be a lvalue", lex);
 		return new TypeSymbol(type, TypeSymbol::MODE_POINTER);
 	}
@@ -410,6 +421,20 @@ void IdentifierNode::visit(INodeVisitor* visitor)
 	visitor->OnNode(this);
 }
 
+// Признак LValue
+bool IdentifierNode::isLValue()
+{
+	VariableSymbol* vs = dynamic_cast<VariableSymbol*>(symbol);
+	return vs != NULL;
+}
+
+// Признак изменяемого LValue
+bool IdentifierNode::isModificableLValue()
+{
+	VariableSymbol* vs = dynamic_cast<VariableSymbol*>(symbol);
+	return vs != NULL && !vs->type->isConst();
+}
+
 //---------------------------------------------------------------------------
 
 // Конструктор
@@ -432,6 +457,19 @@ void ArrayNode::visit(INodeVisitor* visitor)
 {
 	visitor->OnNode(this);
 }
+
+// Признак LValue
+bool ArrayNode::isLValue()
+{
+	return true;
+}
+
+// Признак изменяемого LValue
+bool ArrayNode::isModificableLValue()
+{
+	return !getType()->isConst();
+}
+
 
 //---------------------------------------------------------------------------
 

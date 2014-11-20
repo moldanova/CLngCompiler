@@ -472,7 +472,7 @@ Node* Parser::parseConditionalExpression(Node* left)
 			next();
 			Node* second = parseConditionalExpression(NULL);
 			check(second == NULL, "expected second operand", lex);
-			left = new ConditionalNode(left, first, second);
+			left = new ConditionalNode(ConditionalNode::makeType(lex, first, second), left, first, second);
 		}
 	}
 	return left;

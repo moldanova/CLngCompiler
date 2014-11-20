@@ -16,6 +16,10 @@ public:
 	Node(Lexeme lex, Symbol* symbol);
 	virtual ~Node();
 	virtual void visit(INodeVisitor* visitor);
+	// Признак LValue
+	virtual bool isLValue() { return false; };
+	// Признак изменяемого LValue
+	virtual bool isModificableLValue() { return false; }
 	TypeSymbol* getType();
 	virtual bool isEmpty() { return false; }
 	// Лексема узла
@@ -80,7 +84,8 @@ public:
 class ConditionalNode : public Node
 {
 public:
-	ConditionalNode(Node* left, Node* first, Node* second);
+	static TypeSymbol* makeType(Lexeme lex, Node* first, Node* second);
+	ConditionalNode(Symbol* symbol, Node* left, Node* first, Node* second);
 	virtual ~ConditionalNode();
 	virtual void visit(INodeVisitor* visitor);
 	Node* left;
@@ -140,6 +145,10 @@ public:
 	IdentifierNode(Lexeme lex, Symbol* symbol);
 	virtual ~IdentifierNode();
 	virtual void visit(INodeVisitor* visitor);
+	// Признак LValue
+	virtual bool isLValue();
+	// Признак изменяемого LValue
+	virtual bool isModificableLValue();
 };
 
 //-------------------------------------------------------------------------
@@ -151,6 +160,10 @@ public:
 	ArrayNode(Symbol* symbol, Node* var, Node* idx);
 	virtual ~ArrayNode();
 	virtual void visit(INodeVisitor* visitor);
+	// Признак LValue
+	virtual bool isLValue();
+	// Признак изменяемого LValue
+	virtual bool isModificableLValue();
 	// Массив
 	Node* var;
 	Node* idx;

@@ -55,10 +55,12 @@ AsmVar::AsmVar(std::string name, std::string type, int count)
 // Âûגוסעט ג פאיכ
 void AsmVar::print(std::ofstream& out)
 {
-	if (value.empty())
+	if (!value.empty())
+		out << "\t" << name << " " << type << " " << value << std::endl;
+	else if (count == 0)
 		out << "\t" << name << " " << type << " 0" << std::endl;
 	else
-		out << "\t" << name << " " << type << " " << value << std::endl;
+		out << "\t" << name << " " << type << " " << count << " dup(?)" << std::endl;
 }
 
 //---------------------------------------------------------------------------

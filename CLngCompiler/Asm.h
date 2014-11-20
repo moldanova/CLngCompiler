@@ -50,8 +50,11 @@ enum
 class AsmVar
 {
 public:
+	// Конструктор константы
 	AsmVar(std::string name, std::string type, std::string value);
-	AsmVar(std::string name, std::string type, int count);
+	// Конструктор переменной,массива
+	AsmVar(std::string name, std::string type, int count = 0);
+	// Вывести в файл
 	void print(std::ofstream& out);
 
 	std::string name;
@@ -64,9 +67,13 @@ public:
 class AsmArg
 {
 public:	
+	// Конструктор
 	AsmArg(int arg, std::string value);
+	// Конструктор
 	AsmArg(int arg, int reg);
+	// Конструктор
 	AsmArg(int arg, int reg, int offset);
+	// Вывести в файл
 	void print(std::ofstream& out);
 
 	int arg;			// Тип операнда
@@ -79,10 +86,15 @@ public:
 class AsmCmd
 {
 public:
+	// Конструктор
 	AsmCmd(int cmd);	
+	// Конструктор
 	AsmCmd(int cmd, AsmArg* arg1);
+	// Конструктор
 	AsmCmd(int cmd, AsmArg* arg1, AsmArg* arg2);
+	// деструктор
 	~AsmCmd();
+	// Вывести в файл
 	void print(std::ofstream& out);
 
 	// Код команды
@@ -96,7 +108,9 @@ public:
 class AsmProc
 {
 public:
+	// Конструктор
 	AsmProc(std::string name);
+	// деструктор
 	~AsmProc();	
 	// добавить параметр функции
 	void addParam(AsmVar* var);
@@ -104,9 +118,12 @@ public:
 	void addLocal(AsmVar* var);
 	// Добавить код программы
 	void addCode(AsmCmd* cmd);
+	// Вывести в файл
 	void print(std::ofstream& out);
 
+	// название функции
 	std::string name;
+	// параметры функции
 	std::vector<AsmVar*> param;
 	// локальные переменные
 	std::vector<AsmVar*> local;
@@ -118,7 +135,9 @@ public:
 class AsmProg
 {
 public:
+	// Конструктор
 	AsmProg();
+	// деструктор
 	~AsmProg();
 	// добавить глобальную перемнную
 	void addGlobal(AsmVar* var);
@@ -126,12 +145,14 @@ public:
 	void addProc(AsmProc* proc);
 	// Добавить код программы
 	void addCode(AsmCmd* cmd);
+	// Вывести программу на печать
 	void print(std::string fileName);
 
 	// Глобальные переменные
 	std::vector<AsmVar*> global;
 	// Процедуры
 	std::vector<AsmProc*> proc;
+	// Код программы
 	std::vector<AsmCmd*> code;
 
 };
