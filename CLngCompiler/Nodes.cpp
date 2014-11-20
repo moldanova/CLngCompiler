@@ -193,7 +193,7 @@ TypeSymbol* BinaryOpNode::makeType(Lexeme lex, Node* left, Node* right)
 		}
 
 		if (!right->getType()->canConvertTo(left->getType()))
-			throw SyntaxException("type mismath", lex);
+			throw SyntaxException("type mismatch", lex);
 		return ltype;
 	}
 	if (lex == LEX_MUL_ASSIGNMENT || lex == LEX_DIV_ASSIGNMENT)
@@ -203,7 +203,7 @@ TypeSymbol* BinaryOpNode::makeType(Lexeme lex, Node* left, Node* right)
 		if (!ltype->isScalar() || !rtype->isScalar())
 			throw SyntaxException("operands must be scalar type", lex);
 		if (!right->getType()->canConvertTo(left->getType()))
-			throw SyntaxException("type mismath", lex);
+			throw SyntaxException("type mismatch", lex);
 		return ltype;
 		
 	}
@@ -223,7 +223,7 @@ TypeSymbol* BinaryOpNode::makeType(Lexeme lex, Node* left, Node* right)
 		if (!(ltype->isScalar() || ltype->isPointer()))
 			throw SyntaxException("operands must be scalar type or pointer", lex);
 		if (!right->getType()->canConvertTo(left->getType()))
-			throw SyntaxException("type mismath", lex);
+			throw SyntaxException("type mismatch", lex);
 		return ltype;
 	}	
 	if (lex == LEX_LOGICAL_OR || lex == LEX_LOGICAL_AND)

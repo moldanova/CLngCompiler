@@ -7,7 +7,7 @@
 #include "Printer.h"
 #include "CodeGenerator.h"
 #include <windows.h>
-
+//int (*a())[2];
 int main(int argc, char* argv[])
 {
 	try

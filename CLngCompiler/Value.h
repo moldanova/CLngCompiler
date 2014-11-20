@@ -5,9 +5,7 @@
 class Value
 {
 public:
-	// Конструктор
 	Value();
-	// Оператор присваивания
 	Value operator = (Value val);
 	// Привести типы значений
 	void checkType(Value& val);

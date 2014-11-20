@@ -80,49 +80,34 @@ enum
 class Lexer
 {
 public:
-	// Конструктор
 	Lexer(std::string fileName, std::string outfileName);
 	Lexer(std::string fileName);
-	// деструктор
 	~Lexer();
-	// Получить следующую лексему
 	Lexeme next();
 private:
-	// Получить очередной символ
 	void getChar();
 	// разобрать многострочный комментарий
 	void parseComment1();
 	// разобрать однострочный комментарий
 	void parseComment2();
-	// разобрать число
 	Lexeme parseNumber();
-	// разобрать целое число
 	Lexeme parseOct();	
-	// разобрать целое число
 	Lexeme parseInt();
-	// разобрать целое число
 	Lexeme parseHex();
-	// разобрать вещественное с точкой
 	Lexeme parseFloat();
-	// разобрать вещественное в экспоненциальной форме
 	Lexeme parseExp();
-	// разобрать строковую константу
 	Lexeme parseString();
-	// разобрать символьную константу
 	Lexeme parseChar();
-	// разобрать идентификатор
 	Lexeme parseId();
-	// разобрать ошибку
 	Lexeme parseError();
-	// Сформировать лексему
 	Lexeme makeLex(int code);
 	bool isOct(char c);
 	bool isDigit(char c);
 	bool isHex(char c);
 	bool isSymbol(char c);
 
-	std::ifstream input;	// Входной текстовый файл
-	std::ofstream output;	// Выходной файл
+	std::ifstream input;
+	std::ofstream output;
 	char ch;				// Анализируемый символ
 	std::string text;		// Текст лексемы
 	int line;				// Строка текста
@@ -130,4 +115,3 @@ private:
 	int saveLine;
 	int saveCol;
 };
-

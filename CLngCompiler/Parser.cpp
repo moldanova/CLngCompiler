@@ -3,20 +3,17 @@
 #include "Exceptions.h"
 #include "Calculator.h"
 
-// Конструктор
 Parser::Parser(Lexer& lexer)
 	: lexer(lexer)
 {
 
 }
 
-// Деструктор
 Parser::~Parser(void)
 {
 
 }
 
-// Выполнить анализ
 Node* Parser::parse(bool isExpression)
 {
 	buffer.clear();
@@ -28,16 +25,12 @@ Node* Parser::parse(bool isExpression)
 
 	ProgramNode* prog = new ProgramNode();
 	tables.push_back(&prog->globals);
-	// разбираем единицы транслции
 	while (lex != LEX_EOF)
 	{
-		// разбираем декларацию
 		if (!parseDeclaration(prog))
 		{
-			// Не удалось, может это выражение
 			if (isExpression)
 			{
-				// разбираем выражение
 				Node* node = parseExpression();
 				if (node)
 				{
@@ -46,28 +39,22 @@ Node* Parser::parse(bool isExpression)
 					next();
 				}
 				else
-					// если не удалось, то завершаем разбор
 					break;
 			}
 			else
-				// если не удалось, то завершаем разбор
 				break;
 		}
 	}
 
-	// Если не удалось разобрать программу полностью
 	check(lex != LEX_EOF, "invalid parsing", lex);
 
 	tables.pop_back();
 	return prog;
 }
 
-// Разобрать декларацию
 bool Parser::parseDeclaration(NodesArrayNode* parent)
 {
-	// Разбираем тип
 	TypeSymbol* type = parseType();
-	// Разбираем декларатор
 	Node* node = parseDeclarator(type);
 	if (node == NULL)
 		return false;
@@ -99,12 +86,10 @@ bool Parser::parseDeclaration(NodesArrayNode* parent)
 	return true;
 }
 
-// разобрать тип
 TypeSymbol* Parser::parseType()
 {
 	TypeSymbol* type = NULL;
 
-	// разбираем псевдоним типа
 	if (lex == LEX_TYPEDEF)
 	{
 		next();
@@ -114,48 +99,38 @@ TypeSymbol* Parser::parseType()
 		type = addAliasSymbol(type, lex.text);
 		next();
 	}
-	// Это пустой тип
 	else if (lex == LEX_VOID)
 	{
 		next();
 		type = addTypeSymbol("void");
 	}
-	// Это символьный тип
 	else if (lex == LEX_CHAR)
 	{
 		next();
 		type = addTypeSymbol("char");
 	}
-	// Это целый тип
 	else if (lex == LEX_INT)
 	{
 		next();
 		type = addTypeSymbol("int");
 	}
-	// Это вещественный тип
 	else if (lex == LEX_FLOAT)
 	{
 		next();
 		type = addTypeSymbol("float");
 	}	
-	// Разбираем структуру
 	else if (lex == LEX_STRUCT)
 	{
 		type = parseStruct();
 	}
-	// Это идентификатор - возможно имя типа
 	else if (lex == LEX_ID)
 	{
 		type = getTypeSymbol(lex.text);
 		if (type != NULL)
 			next();
 		else
-		{
-			// Это не тип, а что-то другое
 			return NULL;
-		}
 	}
-	// Это константный тип
 	else if (lex == LEX_CONST)
 	{		
 		next();
@@ -180,7 +155,6 @@ TypeSymbol* Parser::parseType()
 	return type;
 }
 
-// Разобрать структуру
 TypeSymbol* Parser::parseStruct()
 {
 	next();
@@ -233,25 +207,21 @@ TypeSymbol* Parser::parseStruct()
 	return type;
 }
 
-// разобрать определение
 Node* Parser::parseDeclarator(TypeSymbol* type, bool needParen)
 {
 	Node* node = NULL;
 	type = parsePointer(type);
-	// Это идентификатор 
 	if (lex == LEX_ID)
 	{
 		Symbol* s = getSymbol(lex.text);
 		if (type == NULL && s != NULL)
 		{
-			// Возможно это обращение к переменной или функции
 			if (dynamic_cast<VariableSymbol*>(s) != NULL || dynamic_cast<FunctionSymbol*>(s) != NULL)
 				return NULL;
 		}
 		node = new IdentifierNode(lex, type);
 		next();
 	}
-	// Зачем-то круглые скобки
 	else if (lex == LEX_LPAREN)
 	{
 		next();
@@ -323,7 +293,6 @@ Node* Parser::parseDeclarator(TypeSymbol* type, bool needParen)
 	return node;
 }
 
-// Разобрать указатель
 TypeSymbol* Parser::parsePointer(TypeSymbol* type)
 {
 	// Разбираем модификаторы типа, которые могут следовать после имени типа
@@ -346,7 +315,6 @@ TypeSymbol* Parser::parsePointer(TypeSymbol* type)
 	return type;
 }
 
-// Разобрать массив
 TypeSymbol* Parser::parseArray(TypeSymbol* type)
 {
 	while (lex == LEX_LBRACKET)
@@ -367,7 +335,6 @@ TypeSymbol* Parser::parseArray(TypeSymbol* type)
 	return type;
 }
 
-// Разобрать функцию
 Node* Parser::parseFunction(Node* node)
 {
 	// Это функция	
@@ -413,7 +380,6 @@ Node* Parser::parseFunction(Node* node)
 	return node;
 }
 
-// Разобрать выражение
 Node* Parser::parseExpression()
 {
 	ExpressionNode* result = NULL;
@@ -455,7 +421,7 @@ Node* Parser::parseExpression()
 	return result;
 }
 
-// Разобраиь присваивание
+// Разобрать присваивание
 Node* Parser::parseAssignmentExpression()
 {
 	// разбираем унарный оператор
@@ -904,10 +870,6 @@ Node* Parser::parseForStatement()
 	next();
 	check(lex != LEX_LPAREN, "expected \'(\'", lex);
 	next();
-
-	// Первое выражение может содержать декларацию переменной.
-	// это противоречит заданной грамматике, но очень удобно.
-	// исправлено по требованию
 	
 	NodesArrayNode node;
 	Node* expr1 = NULL;
@@ -1006,13 +968,6 @@ bool Parser::isAssignmentOperator()
 		|| lex == LEX_OR_ASSIGNMENT;
 }
 
-// Проверить, что лексема является именем типа
-bool Parser::isTypeName()
-{
-	//TODO
-	return false;
-}
-
 // Проверить символ
 void Parser::checkSymbol(std::string name, bool forceAll)
 {
@@ -1083,7 +1038,7 @@ StructSymbol* Parser::addStructSymbol(std::string name)
 	return type;
 }
 
-// Получить перемнную или функцию
+// Получить переменную или функцию
 Symbol* Parser::getSymbol(std::string name)
 {
 	for (int i = tables.size() - 1; i >= 0; i--)

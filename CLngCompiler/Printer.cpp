@@ -2,7 +2,7 @@
 #include "Printer.h"
 #include "Flag.h"
 
-#define INDENT 4
+#define INDENT 4 // отступ
 
 // Конструктор
 Printer::Printer(std::string fileName)
